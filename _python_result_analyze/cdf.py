@@ -72,15 +72,20 @@ from matplotlib import pyplot as plt
 import re
 from datetime import datetime
 
-# res = result.split('\n')
-# re_runnint_time = r'\d+:\d+:\d+'
-# re_index_of_query = r'(\d+\sof\s\d+\sOK).*in\s(\d+\.\d+)s'
-# re_exec_time = r'\d+\.\d+s'
 
-# re_exp_ok = r'(\d+:\d+:\d+)\s*(\d+)\sof\s(\d+)\sOK.*in\s(\d+\.\d+)s'
-# re_exp_start = r'(\d+:\d+:\d+)\s*(\d+)\sof\s(\d+)\sSTART.*'
-
-# exec_time_array = []
+def plot_cdf(arr, x_label, y_label, title, label):
+    plt.rcParams["figure.figsize"] = [7.50, 3.50]
+    plt.rcParams["figure.autolayout"] = True
+    N = len(arr)
+    x = np.sort(arr)
+    y = np.arange(N) / float(N)
+    # plotting
+    plt.xlabel('Query Duration(sec)')
+    plt.ylabel('CDF')
+    plt.title('CDF: duration of each query')
+    plt.plot(x, y, marker='o', label = "CDF")
+    plt.legend()
+    plt.show()
 
 def parse_dbt_result(dbt_result):
     re_exp_ok = r'(\d+:\d+:\d+)\s*(\d+)\sof\s(\d+)\sOK.*in\s(\d+\.\d+)s'
@@ -114,49 +119,35 @@ def plot_cdf_for_each_query(query_metadata):
     for item in query_metadata.values():
         exec_time_array.append(item.get('duration'))
     
-    plt.rcParams["figure.figsize"] = [7.50, 3.50]
-    plt.rcParams["figure.autolayout"] = True
-    N = len(exec_time_array)
-    x = np.sort(exec_time_array)
-    y = np.arange(N) / float(N)
+    # plt.rcParams["figure.figsize"] = [7.50, 3.50]
+    # plt.rcParams["figure.autolayout"] = True
+    # N = len(exec_time_array)
+    # x = np.sort(exec_time_array)
+    # y = np.arange(N) / float(N)
 
-    # plotting
-    plt.xlabel('Query Duration(sec)')
-    plt.ylabel('CDF')
-    plt.title('CDF: duration of each query')
-    plt.plot(x, y, marker='o', label = "CDF")
-    plt.legend()
-    plt.show()
-
+    # # plotting
+    # plt.xlabel('Query Duration(sec)')
+    # plt.ylabel('CDF')
+    # plt.title('CDF: duration of each query')
+    # plt.plot(x, y, marker='o', label = "CDF")
+    # plt.legend()
+    # plt.show()
+    plot_cdf(exec_time_array, 'Query Duration(sec)', 'CDF', 'CDF: duration of each query', 'CDF (works: 4)')
 
 def plot_cdf_for_all_query(query_metadata):
     tasks_start_time = query_metadata.get('query_1').get('query_start_time')
-
-    pass
-
-#     if match:
-#         query_start_time = ''
-
-#         running_time = item[0:item.index(match.group())].strip()
-
-#         running_time = datetime.strptime(running_time, '%H:%M:%S')
-#         query_index = match.group()[0:match.group().index(' ')]
-#         exec_time = match.group(2)
-#         print(f"running time: {running_time}")
-#         # print(f"Query Index: {query_index}")
-#         # print(f"exec time: {exec_time}")
-#         exec_time_array.append(float(exec_time))
-        
-#         # print(item.index(match.group()))
-#         # print(item[item.index(match.group()):-1])
-
-# # exec_time_array = exec_time_array.astype(float)
-
-# plt.show()
-
+    exec_time_array = []
+    for item in query_metadata.values():
+        query_start_time = item.get('query_start_time')
+        duration = item.get('duration')
+        sub = (query_start_time - tasks_start_time).total_seconds()
+        # print(f'{sub} + {duration} = {sub + duration}')
+        exec_time_array.append(sub + duration)
+    plot_cdf(exec_time_array, 'Query Duration(sec)', 'CDF', 'CDF: duration of all query', 'CDF (works: 4)')
 
 
 
 if __name__ == '__main__':
     metadata = parse_dbt_result(result)
-    plot_cdf_for_each_query(metadata)
+    # plot_cdf_for_each_query(metadata)
+    plot_cdf_for_all_query(metadata)
