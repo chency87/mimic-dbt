@@ -28,7 +28,7 @@ with vd0 as
     , OxygenTherapy
     , Extubated
     , SelfExtubated
-  from ventilation_classification
+  from {{ref('ventilation_classification')}}
 )
 , vd1 as
 (

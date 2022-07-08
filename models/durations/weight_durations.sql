@@ -98,7 +98,7 @@ WITH wt_neonate AS
     , 'echo' AS weight_type
     , 0.453592*ec.weight as weight
   from icustays ie
-  inner join echo_data ec
+  inner join {{ref('echo_data')}} ec
     on ie.hadm_id = ec.hadm_id
   where ec.weight is not null
   and ie.icustay_id not in (select distinct icustay_id from wt_stg)

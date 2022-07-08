@@ -1,0 +1,551 @@
+"userid","dbid","toplevel","queryid","query","plans","total_plan_time","min_plan_time","max_plan_time","mean_plan_time","stddev_plan_time","calls","total_exec_time","min_exec_time","max_exec_time","mean_exec_time","stddev_exec_time","rows","shared_blks_hit","shared_blks_read","shared_blks_dirtied","shared_blks_written","local_blks_hit","local_blks_read","local_blks_dirtied","local_blks_written","temp_blks_read","temp_blks_written","blk_read_time","blk_write_time","wal_records","wal_fpi","wal_bytes"
+16384,16385,True,-8263300922861609450,"/*pga4dash*/
+SELECT $1 AS chart_name, pg_catalog.row_to_json(t) AS chart_data
+FROM (SELECT
+   (SELECT count(*) FROM pg_catalog.pg_stat_activity WHERE datname = (SELECT datname FROM pg_catalog.pg_database WHERE oid = $2)) AS ""Total"",
+   (SELECT count(*) FROM pg_catalog.pg_stat_activity WHERE state = $3 AND datname = (SELECT datname FROM pg_catalog.pg_database WHERE oid = $4))  AS ""Active"",
+   (SELECT count(*) FROM pg_catalog.pg_stat_activity WHERE state = $5 AND datname = (SELECT datname FROM pg_catalog.pg_database WHERE oid = $6))  AS ""Idle""
+) t
+UNION ALL
+SELECT $7 AS chart_name, pg_catalog.row_to_json(t) AS chart_data
+FROM (SELECT
+   (SELECT sum(xact_commit) + sum(xact_rollback) FROM pg_catalog.pg_stat_database WHERE datname = (SELECT datname FROM pg_catalog.pg_database WHERE oid = $8)) AS ""Transactions"",
+   (SELECT sum(xact_commit) FROM pg_catalog.pg_stat_database WHERE datname = (SELECT datname FROM pg_catalog.pg_database WHERE oid = $9)) AS ""Commits"",
+   (SELECT sum(xact_rollback) FROM pg_catalog.pg_stat_database WHERE datname = (SELECT datname FROM pg_catalog.pg_database WHERE oid = $10)) AS ""Rollbacks""
+) t
+UNION ALL
+SELECT $11 AS chart_name, pg_catalog.row_to_json(t) AS chart_data
+FROM (SELECT
+   (SELECT sum(tup_inserted) FROM pg_catalog.pg_stat_database WHERE datname = (SELECT datname FROM pg_catalog.pg_database WHERE oid = $12)) AS ""Inserts"",
+   (SELECT sum(tup_updated) FROM pg_catalog.pg_stat_database WHERE datname = (SELECT datname FROM pg_catalog.pg_database WHERE oid = $13)) AS ""Updates"",
+   (SELECT sum(tup_deleted) FROM pg_catalog.pg_stat_database WHERE datname = (SELECT datname FROM pg_catalog.pg_database WHERE oid = $14)) AS ""Deletes""
+) t
+UNION ALL
+SELECT $15 AS chart_name, pg_catalog.row_to_json(t) AS chart_data
+FROM (SELECT
+   (SELECT sum(tup_fetched) FROM pg_catalog.pg_stat_database WHERE datname = (SELECT datname FROM pg_catalog.pg_database WHERE oid = $16)) AS ""Fetched"",
+   (SELECT sum(tup_returned) FROM pg_catalog.pg_stat_database WHERE datname = (SELECT datname FROM pg_catalog.pg_database WHERE oid = $17)) AS ""Returned""
+) t
+UNION ALL
+SELECT $18 AS chart_name, pg_catalog.row_to_json(t) AS chart_data
+FROM (SELECT
+   (SELECT sum(blks_read) FROM pg_catalog.pg_stat_database WHERE datname = (SELECT datname FROM pg_catalog.pg_database WHERE oid = $19)) AS ""Reads"",
+   (SELECT sum(blks_hit) FROM pg_catalog.pg_stat_database WHERE datname = (SELECT datname FROM pg_catalog.pg_database WHERE oid = $20)) AS ""Hits""
+) t",0,0,0,0,0,0,102221,1369823.5256790002,0.204625,102435.12574999999,13.400607758474317,320.38501853117447,511105,2796007,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+16384,16385,True,-2035116959925083596,"/* {""app"": ""dbt"", ""dbt_version"": ""1.1.0"", ""profile_name"": ""mimic"", ""target_name"": ""dev"", ""node_id"": ""model.mimic.kdigo_uo""} */
+
+
+  create  table ""mimic"".""public"".""kdigo_uo__dbt_tmp""
+  as (
+    with ur_stg as
+(
+  select io.icustay_id, io.charttime
+  -- we have joined each row to all rows preceding within 24 hours
+  -- we can now sum these rows to get total UO over the last 24 hours
+  -- we can use case statements to restrict it to only the last 6/12 hours
+  -- therefore we have three sums:
+  -- 1) over a 6 hour period
+  -- 2) over a 12 hour period
+  -- 3) over a 24 hour period
+
+  -- note that we assume data charted at charttime corresponds to 1 hour of UO
+  -- therefore we use '5' and '11' to restrict the period, rather than 6/12
+  -- this assumption may overestimate UO rate when documentation is done less than hourly
+  , sum(case when DATETIME_DIFF(io.charttime, iosum.charttime, 'HOUR') <= 5
+      then iosum.VALUE
+    else null end) as urineoutput_6hr
+  , sum(case when DATETIME_DIFF(io.charttime, iosum.charttime, 'HOUR') <= 11
+      then iosum.VALUE
+    else null end) as urineoutput_12hr
+  -- 24 hours
+  , sum(iosum.VALUE) as urineoutput_24hr
+
+  -- retain the earliest time used for each summation
+  -- this is later used to tabulate rates
+  , MIN(case when io.charttime <= DATETIME_ADD(iosum.charttime, INTERVAL '5 HOUR')
+      then iosum.charttime
+    else null end)
+    AS starttime_6hr
+  , MIN(case when io.charttime <= DATETIME_ADD(iosum.charttime, INTERVAL '11 HOUR')
+      then iosum.charttime
+    else null end)
+    AS starttime_12hr
+  , MIN(iosum.charttime) AS starttime_24hr
+  from ""mimic"".""public"".""urine_output"" io
+  -- this join gives you all UO measurements over a 24 hour period
+  left join ""mimic"".""public"".""urine_output"" iosum
+    on  io.icustay_id = iosum.icustay_id
+    and io.charttime >= iosum.charttime
+    and io.charttime <= (DATETIME_ADD(iosum.charttime, INTERVAL '23 HOUR'))
+  group by io.icustay_id, io.charttime
+)
+-- calculate hours used to sum UO over
+, ur_stg2 AS
+(
+  select
+    icustay_id
+  , charttime
+  , urineoutput_6hr
+  , urineoutput_12hr
+  , urineoutput_24hr
+  -- calculate time over which we summed UO
+  -- note: adding 1 hour as we assume data charted corresponds to previous hour
+  -- i.e. if documentation is:
+  --  10:00, 100 mL
+  --  11:00, 50 mL
+  -- then this is two hours of documentation, even though (11:00 - 10:00) is 1 hour
+  , ROUND(DATETIME_DIFF(charttime, starttime_6hr, 'HOUR'), 4) + 1 AS uo_tm_6hr
+  , ROUND(DATETIME_DIFF(charttime, starttime_12hr, 'HOUR'), 4) + 1 AS uo_tm_12hr
+  , ROUND(DATETIME_DIFF(charttime, starttime_24hr, 'HOUR'), 4) + 1 AS uo_tm_24hr
+  from ur_stg
+)
+select
+  ur.icustay_id
+, ur.charttime
+, wd.weight
+, ur.urineoutput_6hr
+, ur.urineoutput_12hr
+, ur.urineoutput_24hr
+, ROUND(CAST((ur.urineoutput_6hr/wd.weight/uo_tm_6hr) AS NUMERIC), 4) AS uo_rt_6hr
+, ROUND(CAST((ur.urineoutput_12hr/wd.weight/uo_tm_12hr) AS NUMERIC), 4) AS uo_rt_12hr
+, ROUND(CAST((ur.urineoutput_24hr/wd.weight/uo_tm_24hr) AS NUMERIC), 4) AS uo_rt_24hr
+-- time of earliest UO measurement that was used to calculate the rate
+, uo_tm_6hr
+, uo_tm_12hr
+, uo_tm_24hr
+from ur_stg2 ur
+left join ""mimic"".""public"".""weight_durations"" wd
+  on  ur.icustay_id = wd.icustay_id
+  and ur.charttime >= wd.starttime
+  and ur.charttime <  wd.endtime
+order by icustay_id, charttime
+  )",0,0,0,0,0,0,6,1362969.774543,178421.110292,271903.263375,227161.62909049998,40545.69462664724,20170764,17946,288468,342015,609879,0,0,0,0,2856048,4027170,0,0,20171448,71,2754181194
+16384,16385,True,5058603406263826528,"/* {""app"": ""dbt"", ""dbt_version"": ""1.1.0"", ""profile_name"": ""mimic"", ""target_name"": ""dev"", ""node_id"": ""model.mimic.vitals_first_day""} */
+
+
+  create  table ""mimic"".""public"".""vitals_first_day__dbt_tmp""
+  as (
+    -- This query pivots the vital signs for the first 24 hours of a patient's stay
+-- Vital signs include heart rate, blood pressure, respiration rate, and temperature
+
+SELECT pvt.subject_id, pvt.hadm_id, pvt.icustay_id
+
+-- Easier names
+, min(case when VitalID = 1 then valuenum ELSE NULL END) AS heartrate_min
+, max(case when VitalID = 1 then valuenum ELSE NULL END) AS heartrate_max
+, avg(case when VitalID = 1 then valuenum ELSE NULL END) AS heartrate_mean
+, min(case when VitalID = 2 then valuenum ELSE NULL END) AS sysbp_min
+, max(case when VitalID = 2 then valuenum ELSE NULL END) AS sysbp_max
+, avg(case when VitalID = 2 then valuenum ELSE NULL END) AS sysbp_mean
+, min(case when VitalID = 3 then valuenum ELSE NULL END) AS diasbp_min
+, max(case when VitalID = 3 then valuenum ELSE NULL END) AS diasbp_max
+, avg(case when VitalID = 3 then valuenum ELSE NULL END) AS diasbp_mean
+, min(case when VitalID = 4 then valuenum ELSE NULL END) AS meanbp_min
+, max(case when VitalID = 4 then valuenum ELSE NULL END) AS meanbp_max
+, avg(case when VitalID = 4 then valuenum ELSE NULL END) AS meanbp_mean
+, min(case when VitalID = 5 then valuenum ELSE NULL END) AS resprate_min
+, max(case when VitalID = 5 then valuenum ELSE NULL END) AS resprate_max
+, avg(case when VitalID = 5 then valuenum ELSE NULL END) AS resprate_mean
+, min(case when VitalID = 6 then valuenum ELSE NULL END) AS tempc_min
+, max(case when VitalID = 6 then valuenum ELSE NULL END) AS tempc_max
+, avg(case when VitalID = 6 then valuenum ELSE NULL END) AS tempc_mean
+, min(case when VitalID = 7 then valuenum ELSE NULL END) AS spo2_min
+, max(case when VitalID = 7 then valuenum ELSE NULL END) AS spo2_max
+, avg(case when VitalID = 7 then valuenum ELSE NULL END) AS spo2_mean
+, min(case when VitalID = 8 then valuenum ELSE NULL END) AS glucose_min
+, max(case when VitalID = 8 then valuenum ELSE NULL END) AS glucose_max
+, avg(case when VitalID = 8 then valuenum ELSE NULL END) AS glucose_mean
+
+FROM  (
+  select ie.subject_id, ie.hadm_id, ie.icustay_id
+  , case
+    when itemid in (211,220045) and valuenum > 0 and valuenum < 300 then 1 -- HeartRate
+    when itemid in (51,442,455,6701,220179,220050) and valuenum > 0 and valuenum < 400 then 2 -- SysBP
+    when itemid in (8368,8440,8441,8555,220180,220051) and valuenum > 0 and valuenum < 300 then 3 -- DiasBP
+    when itemid in (456,52,6702,443,220052,220181,225312) and valuenum > 0 and valuenum < 300 then 4 -- MeanBP
+    when itemid in (615,618,220210,224690) and valuenum > 0 and valuenum < 70 then 5 -- RespRate
+    when itemid in (223761,678) and valuenum > 70 and valuenum < 120  then 6 -- TempF, converted to degC in valuenum call
+    when itemid in (223762,676) and valuenum > 10 and valuenum < 50  then 6 -- TempC
+    when itemid in (646,220277) and valuenum > 0 and valuenum <= 100 then 7 -- SpO2
+    when itemid in (807,811,1529,3745,3744,225664,220621,226537) and valuenum > 0 then 8 -- Glucose
+
+    else null end as vitalid
+      -- convert F to C
+  , case when itemid in (223761,678) then (valuenum-32)/1.8 else valuenum end as valuenum
+
+  from icustays ie
+  left join chartevents ce
+  on ie.icustay_id = ce.icustay_id
+  and ce.charttime between ie.intime and DATETIME_ADD(ie.intime, INTERVAL '1 DAY')
+  and DATETIME_DIFF(ce.charttime, ie.intime, 'SECOND') > 0
+  and DATETIME_DIFF(ce.charttime, ie.intime, 'HOUR') <= 24
+  -- exclude rows marked as error
+  and (ce.error IS NULL or ce.error = 0)
+  where ce.itemid in
+  (
+  -- HEART RATE
+  211, --""Heart Rate""
+  220045, --""Heart Rate""
+
+  -- Systolic/diastolic
+
+  51, --	Arterial BP [Systolic]
+  442, --	Manual BP [Systolic]
+  455, --	NBP [Systolic]
+  6701, --	Arterial BP #2 [Systolic]
+  220179, --	Non Invasive Blood Pressure systolic
+  220050, --	Arterial Blood Pressure systolic
+
+  8368, --	Arterial BP [Diastolic]
+  8440, --	Manual BP [Diastolic]
+  8441, --	NBP [Diastolic]
+  8555, --	Arterial BP #2 [Diastolic]
+  220180, --	Non Invasive Blood Pressure diastolic
+  220051, --	Arterial Blood Pressure diastolic
+
+
+  -- MEAN ARTERIAL PRESSURE
+  456, --""NBP Mean""
+  52, --""Arterial BP Mean""
+  6702, --	Arterial BP Mean #2
+  443, --	Manual BP Mean(calc)
+  220052, --""Arterial Blood Pressure mean""
+  220181, --""Non Invasive Blood Pressure mean""
+  225312, --""ART BP mean""
+
+  -- RESPIRATORY RATE
+  618,--	Respiratory Rate
+  615,--	Resp Rate (Total)
+  220210,--	Respiratory Rate
+  224690, --	Respiratory Rate (Total)
+
+
+  -- SPO2, peripheral
+  646, 220277,
+
+  -- GLUCOSE, both lab and fingerstick
+  807,--	Fingerstick Glucose
+  811,--	Glucose (70-105)
+  1529,--	Glucose
+  3745,--	BloodGlucose
+  3744,--	Blood Glucose
+  225664,--	Glucose finger stick
+  220621,--	Glucose (serum)
+  226537,--	Glucose (whole blood)
+
+  -- TEMPERATURE
+  223762, -- ""Temperature Celsius""
+  676,	-- ""Temperature C""
+  223761, -- ""Temperature Fahrenheit""
+  678 --	""Temperature F""
+
+  )
+) pvt
+group by pvt.subject_id, pvt.hadm_id, pvt.icustay_id
+order by pvt.subject_id, pvt.hadm_id, pvt.icustay_id
+  )",0,0,0,0,0,0,7,683428.415666,77614.101791,112582.741542,97632.63080942856,10378.887000214072,414722,24080,7250227,11257,11525,0,0,0,0,940953,942857,0,0,415396,14,101435723
+16384,16385,True,-4155957101908815077,"/* {""app"": ""dbt"", ""dbt_version"": ""1.1.0"", ""profile_name"": ""mimic"", ""target_name"": ""dev"", ""node_id"": ""model.mimic.labs_first_day""} */
+
+
+  create  table ""mimic"".""public"".""labs_first_day__dbt_tmp""
+  as (
+    -- This query pivots lab values taken in the first 24 hours of a patient's stay
+
+-- Have already confirmed that the unit of measurement is always the same: null or the correct unit
+
+SELECT
+  pvt.subject_id, pvt.hadm_id, pvt.icustay_id
+
+  , min(CASE WHEN label = 'ANION GAP' THEN valuenum ELSE NULL END) AS aniongap_min
+  , max(CASE WHEN label = 'ANION GAP' THEN valuenum ELSE NULL END) AS aniongap_max
+  , min(CASE WHEN label = 'ALBUMIN' THEN valuenum ELSE NULL END) AS albumin_min
+  , max(CASE WHEN label = 'ALBUMIN' THEN valuenum ELSE NULL END) AS albumin_max
+  , min(CASE WHEN label = 'BANDS' THEN valuenum ELSE NULL END) AS bands_min
+  , max(CASE WHEN label = 'BANDS' THEN valuenum ELSE NULL END) AS bands_max
+  , min(CASE WHEN label = 'BICARBONATE' THEN valuenum ELSE NULL END) AS bicarbonate_min
+  , max(CASE WHEN label = 'BICARBONATE' THEN valuenum ELSE NULL END) AS bicarbonate_max
+  , min(CASE WHEN label = 'BILIRUBIN' THEN valuenum ELSE NULL END) AS bilirubin_min
+  , max(CASE WHEN label = 'BILIRUBIN' THEN valuenum ELSE NULL END) AS bilirubin_max
+  , min(CASE WHEN label = 'CREATININE' THEN valuenum ELSE NULL END) AS creatinine_min
+  , max(CASE WHEN label = 'CREATININE' THEN valuenum ELSE NULL END) AS creatinine_max
+  , min(CASE WHEN label = 'CHLORIDE' THEN valuenum ELSE NULL END) AS chloride_min
+  , max(CASE WHEN label = 'CHLORIDE' THEN valuenum ELSE NULL END) AS chloride_max
+  , min(CASE WHEN label = 'GLUCOSE' THEN valuenum ELSE NULL END) AS glucose_min
+  , max(CASE WHEN label = 'GLUCOSE' THEN valuenum ELSE NULL END) AS glucose_max
+  , min(CASE WHEN label = 'HEMATOCRIT' THEN valuenum ELSE NULL END) AS hematocrit_min
+  , max(CASE WHEN label = 'HEMATOCRIT' THEN valuenum ELSE NULL END) AS hematocrit_max
+  , min(CASE WHEN label = 'HEMOGLOBIN' THEN valuenum ELSE NULL END) AS hemoglobin_min
+  , max(CASE WHEN label = 'HEMOGLOBIN' THEN valuenum ELSE NULL END) AS hemoglobin_max
+  , min(CASE WHEN label = 'LACTATE' THEN valuenum ELSE NULL END) AS lactate_min
+  , max(CASE WHEN label = 'LACTATE' THEN valuenum ELSE NULL END) AS lactate_max
+  , min(CASE WHEN label = 'PLATELET' THEN valuenum ELSE NULL END) AS platelet_min
+  , max(CASE WHEN label = 'PLATELET' THEN valuenum ELSE NULL END) AS platelet_max
+  , min(CASE WHEN label = 'POTASSIUM' THEN valuenum ELSE NULL END) AS potassium_min
+  , max(CASE WHEN label = 'POTASSIUM' THEN valuenum ELSE NULL END) AS potassium_max
+  , min(CASE WHEN label = 'PTT' THEN valuenum ELSE NULL END) AS ptt_min
+  , max(CASE WHEN label = 'PTT' THEN valuenum ELSE NULL END) AS ptt_max
+  , min(CASE WHEN label = 'INR' THEN valuenum ELSE NULL END) AS inr_min
+  , max(CASE WHEN label = 'INR' THEN valuenum ELSE NULL END) AS inr_max
+  , min(CASE WHEN label = 'PT' THEN valuenum ELSE NULL END) AS pt_min
+  , max(CASE WHEN label = 'PT' THEN valuenum ELSE NULL END) AS pt_max
+  , min(CASE WHEN label = 'SODIUM' THEN valuenum ELSE NULL END) AS sodium_min
+  , max(CASE WHEN label = 'SODIUM' THEN valuenum ELSE NULL END) AS sodium_max
+  , min(CASE WHEN label = 'BUN' THEN valuenum ELSE NULL END) AS bun_min
+  , max(CASE WHEN label = 'BUN' THEN valuenum ELSE NULL END) AS bun_max
+  , min(CASE WHEN label = 'WBC' THEN valuenum ELSE NULL END) AS wbc_min
+  , max(CASE WHEN label = 'WBC' THEN valuenum ELSE NULL END) AS wbc_max
+
+
+FROM
+( -- begin query that extracts the data
+  SELECT ie.subject_id, ie.hadm_id, ie.icustay_id
+  -- here we assign labels to ITEMIDs
+  -- this also fuses together multiple ITEMIDs containing the same data
+  , CASE
+        WHEN itemid = 50868 THEN 'ANION GAP'
+        WHEN itemid = 50862 THEN 'ALBUMIN'
+        WHEN itemid = 51144 THEN 'BANDS'
+        WHEN itemid = 50882 THEN 'BICARBONATE'
+        WHEN itemid = 50885 THEN 'BILIRUBIN'
+        WHEN itemid = 50912 THEN 'CREATININE'
+        WHEN itemid = 50806 THEN 'CHLORIDE'
+        WHEN itemid = 50902 THEN 'CHLORIDE'
+        WHEN itemid = 50809 THEN 'GLUCOSE'
+        WHEN itemid = 50931 THEN 'GLUCOSE'
+        WHEN itemid = 50810 THEN 'HEMATOCRIT'
+        WHEN itemid = 51221 THEN 'HEMATOCRIT'
+        WHEN itemid = 50811 THEN 'HEMOGLOBIN'
+        WHEN itemid = 51222 THEN 'HEMOGLOBIN'
+        WHEN itemid = 50813 THEN 'LACTATE'
+        WHEN itemid = 51265 THEN 'PLATELET'
+        WHEN itemid = 50822 THEN 'POTASSIUM'
+        WHEN itemid = 50971 THEN 'POTASSIUM'
+        WHEN itemid = 51275 THEN 'PTT'
+        WHEN itemid = 51237 THEN 'INR'
+        WHEN itemid = 51274 THEN 'PT'
+        WHEN itemid = 50824 THEN 'SODIUM'
+        WHEN itemid = 50983 THEN 'SODIUM'
+        WHEN itemid = 51006 THEN 'BUN'
+        WHEN itemid = 51300 THEN 'WBC'
+        WHEN itemid = 51301 THEN 'WBC'
+      ELSE null
+    END as label
+  , -- add in some sanity checks on the values
+  -- the where clause below requires all valuenum to be > 0, so these are only upper limit checks
+    CASE
+      WHEN itemid = 50862 and valuenum >    10 THEN null -- g/dL 'ALBUMIN'
+      WHEN itemid = 50868 and valuenum > 10000 THEN null -- mEq/L 'ANION GAP'
+      WHEN itemid = 51144 and valuenum <     0 THEN null -- immature band forms, %
+      WHEN itemid = 51144 and valuenum >   100 THEN null -- immature band forms, %
+      WHEN itemid = 50882 and valuenum > 10000 THEN null -- mEq/L 'BICARBONATE'
+      WHEN itemid = 50885 and valuenum >   150 THEN null -- mg/dL 'BILIRUBIN'
+      WHEN itemid = 50806 and valuenum > 10000 THEN null -- mEq/L 'CHLORIDE'
+      WHEN itemid = 50902 and valuenum > 10000 THEN null -- mEq/L 'CHLORIDE'
+      WHEN itemid = 50912 and valuenum >   150 THEN null -- mg/dL 'CREATININE'
+      WHEN itemid = 50809 and valuenum > 10000 THEN null -- mg/dL 'GLUCOSE'
+      WHEN itemid = 50931 and valuenum > 10000 THEN null -- mg/dL 'GLUCOSE'
+      WHEN itemid = 50810 and valuenum >   100 THEN null -- % 'HEMATOCRIT'
+      WHEN itemid = 51221 and valuenum >   100 THEN null -- % 'HEMATOCRIT'
+      WHEN itemid = 50811 and valuenum >    50 THEN null -- g/dL 'HEMOGLOBIN'
+      WHEN itemid = 51222 and valuenum >    50 THEN null -- g/dL 'HEMOGLOBIN'
+      WHEN itemid = 50813 and valuenum >    50 THEN null -- mmol/L 'LACTATE'
+      WHEN itemid = 51265 and valuenum > 10000 THEN null -- K/uL 'PLATELET'
+      WHEN itemid = 50822 and valuenum >    30 THEN null -- mEq/L 'POTASSIUM'
+      WHEN itemid = 50971 and valuenum >    30 THEN null -- mEq/L 'POTASSIUM'
+      WHEN itemid = 51275 and valuenum >   150 THEN null -- sec 'PTT'
+      WHEN itemid = 51237 and valuenum >    50 THEN null -- 'INR'
+      WHEN itemid = 51274 and valuenum >   150 THEN null -- sec 'PT'
+      WHEN itemid = 50824 and valuenum >   200 THEN null -- mEq/L == mmol/L 'SODIUM'
+      WHEN itemid = 50983 and valuenum >   200 THEN null -- mEq/L == mmol/L 'SODIUM'
+      WHEN itemid = 51006 and valuenum >   300 THEN null -- 'BUN'
+      WHEN itemid = 51300 and valuenum >  1000 THEN null -- 'WBC'
+      WHEN itemid = 51301 and valuenum >  1000 THEN null -- 'WBC'
+    ELSE le.valuenum
+    END as valuenum
+
+  FROM icustays ie
+
+  LEFT JOIN labevents le
+    ON le.subject_id = ie.subject_id AND le.hadm_id = ie.hadm_id
+    AND le.charttime BETWEEN (DATETIME_SUB(ie.intime, INTERVAL '6' HOUR)) AND (DATETIME_ADD(ie.intime, INTERVAL '1' DAY))
+    AND le.ITEMID in
+    (
+      -- comment is: LABEL | CATEGORY | FLUID | NUMBER OF ROWS IN LABEVENTS
+      50868, -- ANION GAP | CHEMISTRY | BLOOD | 769895
+      50862, -- ALBUMIN | CHEMISTRY | BLOOD | 146697
+      51144, -- BANDS - hematology
+      50882, -- BICARBONATE | CHEMISTRY | BLOOD | 780733
+      50885, -- BILIRUBIN, TOTAL | CHEMISTRY | BLOOD | 238277
+      50912, -- CREATININE | CHEMISTRY | BLOOD | 797476
+      50902, -- CHLORIDE | CHEMISTRY | BLOOD | 795568
+      50806, -- CHLORIDE, WHOLE BLOOD | BLOOD GAS | BLOOD | 48187
+      50931, -- GLUCOSE | CHEMISTRY | BLOOD | 748981
+      50809, -- GLUCOSE | BLOOD GAS | BLOOD | 196734
+      51221, -- HEMATOCRIT | HEMATOLOGY | BLOOD | 881846
+      50810, -- HEMATOCRIT, CALCULATED | BLOOD GAS | BLOOD | 89715
+      51222, -- HEMOGLOBIN | HEMATOLOGY | BLOOD | 752523
+      50811, -- HEMOGLOBIN | BLOOD GAS | BLOOD | 89712
+      50813, -- LACTATE | BLOOD GAS | BLOOD | 187124
+      51265, -- PLATELET COUNT | HEMATOLOGY | BLOOD | 778444
+      50971, -- POTASSIUM | CHEMISTRY | BLOOD | 845825
+      50822, -- POTASSIUM, WHOLE BLOOD | BLOOD GAS | BLOOD | 192946
+      51275, -- PTT | HEMATOLOGY | BLOOD | 474937
+      51237, -- INR(PT) | HEMATOLOGY | BLOOD | 471183
+      51274, -- PT | HEMATOLOGY | BLOOD | 469090
+      50983, -- SODIUM | CHEMISTRY | BLOOD | 808489
+      50824, -- SODIUM, WHOLE BLOOD | BLOOD GAS | BLOOD | 71503
+      51006, -- UREA NITROGEN | CHEMISTRY | BLOOD | 791925
+      51301, -- WHITE BLOOD CELLS | HEMATOLOGY | BLOOD | 753301
+      51300  -- WBC COUNT | HEMATOLOGY | BLOOD | 2371
+    )
+    AND valuenum IS NOT null AND valuenum > 0 -- lab values cannot be 0 and cannot be negative
+) pvt
+GROUP BY pvt.subject_id, pvt.hadm_id, pvt.icustay_id
+ORDER BY pvt.subject_id, pvt.hadm_id, pvt.icustay_id
+  )",0,0,0,0,0,0,8,491876.989877,30287.158125,82561.128834,61484.623734625,18408.897911393517,492256,251263,2035765,17485,18687,0,0,0,0,167760,168264,0,0,493234,22,153519386
+16384,16385,True,-7194765410693190735,"/* {""app"": ""dbt"", ""dbt_version"": ""1.1.0"", ""profile_name"": ""mimic"", ""target_name"": ""dev"", ""node_id"": ""model.mimic.ventilation_classification""} */
+
+
+  create  table ""mimic"".""public"".""ventilation_classification__dbt_tmp""
+  as (
+    -- Identify The presence of a mechanical ventilation using settings
+select
+  icustay_id, charttime
+  -- case statement determining whether it is an instance of mech vent
+  , max(
+    case
+      when itemid is null or value is null then 0 -- can't have null values
+      when itemid = 720 and value != 'Other/Remarks' THEN 1  -- VentTypeRecorded
+      when itemid = 223848 and value != 'Other' THEN 1
+      when itemid = 223849 then 1 -- ventilator mode
+      when itemid = 467 and value = 'Ventilator' THEN 1 -- O2 delivery device == ventilator
+      when itemid in
+        (
+        445, 448, 449, 450, 1340, 1486, 1600, 224687 -- minute volume
+        , 639, 654, 681, 682, 683, 684,224685,224684,224686 -- tidal volume
+        , 218,436,535,444,459,224697,224695,224696,224746,224747 -- High/Low/Peak/Mean/Neg insp force (""RespPressure"")
+        , 221,1,1211,1655,2000,226873,224738,224419,224750,227187 -- Insp pressure
+        , 543 -- PlateauPressure
+        , 5865,5866,224707,224709,224705,224706 -- APRV pressure
+        , 60,437,505,506,686,220339,224700 -- PEEP
+        , 3459 -- high pressure relief
+        , 501,502,503,224702 -- PCV
+        , 223,667,668,669,670,671,672 -- TCPCV
+        , 224701 -- PSVlevel
+        )
+        THEN 1
+      else 0
+    end
+    ) as MechVent
+    , max(
+      case
+        -- initiation of oxygen therapy indicates the ventilation has ended
+        when itemid = 226732 and value in
+        (
+          'Nasal cannula', -- 153714 observations
+          'Face tent', -- 24601 observations
+          'Aerosol-cool', -- 24560 observations
+          'Trach mask ', -- 16435 observations
+          'High flow neb', -- 10785 observations
+          'Non-rebreather', -- 5182 observations
+          'Venti mask ', -- 1947 observations
+          'Medium conc mask ', -- 1888 observations
+          'T-piece', -- 1135 observations
+          'High flow nasal cannula', -- 925 observations
+          'Ultrasonic neb', -- 9 observations
+          'Vapomist' -- 3 observations
+        ) then 1
+        when itemid = 467 and value in
+        (
+          'Cannula', -- 278252 observations
+          'Nasal Cannula', -- 248299 observations
+          -- 'None', -- 95498 observations
+          'Face Tent', -- 35766 observations
+          'Aerosol-Cool', -- 33919 observations
+          'Trach Mask', -- 32655 observations
+          'Hi Flow Neb', -- 14070 observations
+          'Non-Rebreather', -- 10856 observations
+          'Venti Mask', -- 4279 observations
+          'Medium Conc Mask', -- 2114 observations
+          'Vapotherm', -- 1655 observations
+          'T-Piece', -- 779 observations
+          'Hood', -- 670 observations
+          'Hut', -- 150 observations
+          'TranstrachealCat', -- 78 observations
+          'Heated Neb', -- 37 observations
+          'Ultrasonic Neb' -- 2 observations
+        ) then 1
+      else 0
+      end
+    ) as OxygenTherapy
+    , max(
+      case when itemid is null or value is null then 0
+        -- extubated indicates ventilation event has ended
+        when itemid = 640 and value = 'Extubated' then 1
+        when itemid = 640 and value = 'Self Extubation' then 1
+      else 0
+      end
+      )
+      as Extubated
+    , max(
+      case when itemid is null or value is null then 0
+        when itemid = 640 and value = 'Self Extubation' then 1
+      else 0
+      end
+      )
+      as SelfExtubated
+from chartevents ce
+where ce.value is not null
+-- exclude rows marked as error
+and (ce.error != 1 or ce.error IS NULL)
+and itemid in
+(
+    -- the below are settings used to indicate ventilation
+      720, 223849 -- vent mode
+    , 223848 -- vent type
+    , 445, 448, 449, 450, 1340, 1486, 1600, 224687 -- minute volume
+    , 639, 654, 681, 682, 683, 684,224685,224684,224686 -- tidal volume
+    , 218,436,535,444,224697,224695,224696,224746,224747 -- High/Low/Peak/Mean (""RespPressure"")
+    , 221,1,1211,1655,2000,226873,224738,224419,224750,227187 -- Insp pressure
+    , 543 -- PlateauPressure
+    , 5865,5866,224707,224709,224705,224706 -- APRV pressure
+    , 60,437,505,506,686,220339,224700 -- PEEP
+    , 3459 -- high pressure relief
+    , 501,502,503,224702 -- PCV
+    , 223,667,668,669,670,671,672 -- TCPCV
+    , 224701 -- PSVlevel
+
+    -- the below are settings used to indicate extubation
+    , 640 -- extubated
+
+    -- the below indicate oxygen/NIV, i.e. the end of a mechanical vent event
+    , 468 -- O2 Delivery Device#2
+    , 469 -- O2 Delivery Mode
+    , 470 -- O2 Flow (lpm)
+    , 471 -- O2 Flow (lpm) #2
+    , 227287 -- O2 Flow (additional cannula)
+    , 226732 -- O2 Delivery Device(s)
+    , 223834 -- O2 Flow
+
+    -- used in both oxygen + vent calculation
+    , 467 -- O2 Delivery Device
+)
+group by icustay_id, charttime
+UNION DISTINCT
+-- add in the extubation flags from procedureevents_mv
+-- note that we only need the start time for the extubation
+-- (extubation is always charted as ending 1 minute after it started)
+select
+  icustay_id, starttime as charttime
+  , 0 as MechVent
+  , 0 as OxygenTherapy
+  , 1 as Extubated
+  , case when itemid = 225468 then 1 else 0 end as SelfExtubated
+from procedureevents_mv
+where itemid in
+(
+  227194 -- ""Extubation""
+, 225468 -- ""Unplanned Extubation (patient-initiated)""
+, 225477 -- ""Unplanned Extubation (non-patient initiated)""
+)
+  )",0,0,0,0,0,0,14,452035.749792,12341.70975,51594.72725,32288.267842285717,10876.827753544676,35690956,58258,9394347,335737,585841,0,0,0,0,2533779,3451554,0,0,35691704,53,3105121728

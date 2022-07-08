@@ -42,3 +42,9 @@ models:
       +materialized: table
     demographics:
       +materialized: table
+    organfailure:
+      +materialized: table
+    firstday:
+      +materialized: table
+    fluid_balance:
+      +materialized: table

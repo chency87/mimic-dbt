@@ -24,7 +24,7 @@ with vasocv1 as
     , max(case when itemid in (30047,30120) then amount else null end) as vaso_amount
 
   FROM inputevents_cv cv
-  left join weight_durations wd
+  left join {{ref('weight_durations')}} wd
     on cv.icustay_id = wd.icustay_id
     and cv.charttime between wd.starttime and wd.endtime
   where itemid in (30047,30120) -- norepinephrine

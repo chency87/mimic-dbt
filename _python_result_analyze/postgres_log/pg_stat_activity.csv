@@ -1,0 +1,710 @@
+"datid","datname","pid","leader_pid","usesysid","usename","application_name","client_addr","client_hostname","client_port","backend_start","xact_start","query_start","state_change","wait_event_type","wait_event","state","backend_xid","backend_xmin","query_id","query","backend_type"
+NULL,NULL,5511,NULL,NULL,NULL,"",NULL,NULL,NULL,"2022-07-05 23:25:15.751863-07",NULL,NULL,NULL,"Activity","AutoVacuumMain",NULL,NULL,NULL,NULL,"","autovacuum launcher"
+NULL,NULL,5513,NULL,10,"chenchunyu","",NULL,NULL,NULL,"2022-07-05 23:25:15.752264-07",NULL,NULL,NULL,"Activity","LogicalLauncherMain",NULL,NULL,NULL,NULL,"","logical replication launcher"
+16385,"mimic",5538,NULL,16384,"postgres","pgAdmin 4 - CONN:8291437","::1",NULL,53577,"2022-07-05 23:25:50.516201-07","2022-07-06 19:46:20.034-07","2022-07-06 19:46:20.034-07","2022-07-06 19:46:20.034006-07",NULL,NULL,"active",NULL,"2672",1494296336602610313,"-- SELECT query, calls, total_exec_time, rows, 100.0 * shared_blks_hit /
+--                nullif(shared_blks_hit + shared_blks_read, 0) AS hit_percent
+--           FROM pg_stat_statements ORDER BY total_exec_time DESC LIMIT 5;
+
+select * from pg_stat_activity limit 100;","client backend"
+16385,"mimic",5533,NULL,16384,"postgres","pgAdmin 4 - DB:mimic","::1",NULL,53560,"2022-07-05 23:25:45.051579-07",NULL,"2022-07-06 19:46:18.640732-07","2022-07-06 19:46:18.656322-07","Client","ClientRead","idle",NULL,NULL,-8.263300922861609e+18,"/*pga4dash*/
+SELECT 'session_stats' AS chart_name, pg_catalog.row_to_json(t) AS chart_data
+FROM (SELECT
+   (SELECT count(*) FROM pg_catalog.pg_stat_activity WHERE datname = (SELECT datname FROM pg_catalog.pg_database WHERE oid = 16385)) AS ""Total"",
+   (SELECT count(*) FROM pg_catalog.pg_stat_activity WHERE state = 'active' AND datname = (SELECT datname FROM pg_catalog.pg_database WHERE oid = 16385))  AS ""Active"",
+   (SELECT count(*) FROM pg_catalog.pg_stat_activity WHERE state = 'idle' AND datname = (SELECT datname FROM pg_catalog.pg_database WHERE oid = 16385))  AS ""Idle""
+) t
+UNION ALL
+SELECT 'tps_stats' AS chart_name, pg_catalog.row_to_json(t) AS chart_data
+FROM (SELECT
+   (SELECT sum(xact_commit) + sum(xact_rollback) FROM pg_catalog.pg_stat_database WHERE datname = (SELECT datname FROM pg_catalog.pg_database WHERE oid = 16385)) AS ""Transactions"",
+   (SELECT sum(xact_commit) FROM pg_catalog.pg_stat_database WHERE datname = (SELECT datname FROM pg_catalog.pg_database WHERE oid = 16385)) AS ""Commits"",
+   (SE","client backend"
+16385,"mimic",16899,NULL,16384,"postgres","pgAdmin 4 - CONN:8291437","::1",NULL,57465,"2022-07-06 19:13:19.956096-07",NULL,NULL,"2022-07-06 19:13:20.112094-07","Client","ClientRead","idle",NULL,NULL,NULL,"","client backend"
+16385,"mimic",17346,NULL,16384,"postgres","dbt","::1",NULL,60805,"2022-07-06 19:46:17.263805-07","2022-07-06 19:46:17.272678-07","2022-07-06 19:46:17.27423-07","2022-07-06 19:46:17.274234-07","IO","DataFileRead","active","2685","2672",-2.863313541562165e+18,"/* {""app"": ""dbt"", ""dbt_version"": ""1.1.0"", ""profile_name"": ""mimic"", ""target_name"": ""dev"", ""node_id"": ""model.mimic.arterial_line_durations""} */
+
+
+  create  table ""mimic"".""public"".""arterial_line_durations__dbt_tmp""
+  as (
+    with mv as
+(
+  select
+    pe.icustay_id
+  , pe.starttime, pe.endtime
+  , case
+      when itemid in (225752, 224272)
+        then 1
+      when pe.locationcategory = 'Invasive Arterial'
+        then 1
+      when itemid = 225789 and pe.locationcategory IS NULL
+        then 1
+      else 0
+    end as arterial_line
+  FROM procedureevents_mv pe
+  where pe.itemid in
+  (
+      224263 -- Multi Lumen | None | 12 | Processes
+    -- , 224264 -- PICC Line | None | 12 | Processes
+    , 224267 -- Cordis/Introducer | None | 12 | Processes
+    , 224268 -- Trauma line | None | 12 | Processes
+    , 225199 -- Triple Introducer | None | 12 | Processes
+    -- , 225202 -- Indwelling Port (PortaCath) | None | 12 | Processes
+    -- , 225203 -- Pheresis Catheter | None | 12 | Processes
+    -- , 225315 -- Tunneled (H","client backend"
+16385,"mimic",17349,NULL,16384,"postgres","dbt","::1",NULL,60807,"2022-07-06 19:46:17.266717-07","2022-07-06 19:46:17.273311-07","2022-07-06 19:46:17.276099-07","2022-07-06 19:46:17.276105-07","IPC","BufferIO","active","2673","2672",695002176672842774,"/* {""app"": ""dbt"", ""dbt_version"": ""1.1.0"", ""profile_name"": ""mimic"", ""target_name"": ""dev"", ""node_id"": ""model.mimic.dobutamine_dose""} */
+
+
+  create  table ""mimic"".""public"".""dobutamine_dose__dbt_tmp""
+  as (
+    -- This query extracts dose+durations of dopamine administration
+
+-- Get drug administration data from CareVue first
+with vasocv1 as
+(
+    select
+    icustay_id, charttime
+    -- case statement determining whether the ITEMID is an instance of vasopressor usage
+    , max(case when itemid in (30042,30306) then 1 else 0 end) as vaso -- dobutamine
+
+    -- the 'stopped' column indicates if a vasopressor has been disconnected
+    , max(case when itemid in (30042,30306) and (stopped = 'Stopped' OR stopped like 'D/C%') then 1
+          else 0 end) as vaso_stopped
+
+    , max(case when itemid in (30042,30306) and rate is not null then 1 else 0 end) as vaso_null
+    , max(case when itemid in (30042,30306) then rate else null end) as vaso_rate
+    , max(case when itemid in (30042,30306) then amount else null end) as ","client backend"
+16385,"mimic",17348,NULL,16384,"postgres","dbt","::1",NULL,60806,"2022-07-06 19:46:17.271406-07","2022-07-06 19:46:17.274395-07","2022-07-06 19:46:17.278528-07","2022-07-06 19:46:17.278534-07","IPC","BufferIO","active","2680","2672",-3.0648433239055245e+17,"/* {""app"": ""dbt"", ""dbt_version"": ""1.1.0"", ""profile_name"": ""mimic"", ""target_name"": ""dev"", ""node_id"": ""model.mimic.epinephrine_durations""} */
+
+
+  create  table ""mimic"".""public"".""epinephrine_durations__dbt_tmp""
+  as (
+    -- This query extracts durations of epinephrine administration
+-- Consecutive administrations are numbered 1, 2, ...
+-- Total time on the drug can be calculated from this table by grouping using ICUSTAY_ID
+
+-- Get drug administration data from CareVue first
+with vasocv1 as
+(
+  select
+    icustay_id, charttime
+    -- case statement determining whether the ITEMID is an instance of vasopressor usage
+    , max(case when itemid in (30044,30119,30309) then 1 else 0 end) as vaso -- epinephrine
+
+    -- the 'stopped' column indicates if a vasopressor has been disconnected
+    , max(case when itemid in (30044,30119,30309) and (stopped = 'Stopped' OR stopped like 'D/C%') then 1
+          else 0 end) as vaso_stopped
+
+    , max(case when itemid in (30044,30119,30309) and rate is not null then 1 else 0 end)","client backend"
+16385,"mimic",17347,NULL,16384,"postgres","dbt","::1",NULL,60804,"2022-07-06 19:46:17.271523-07","2022-07-06 19:46:17.273368-07","2022-07-06 19:46:17.27806-07","2022-07-06 19:46:17.278065-07","IO","BufFileWrite","active","2672","2672",-8.470780290599637e+18,"/* {""app"": ""dbt"", ""dbt_version"": ""1.1.0"", ""profile_name"": ""mimic"", ""target_name"": ""dev"", ""node_id"": ""model.mimic.code_status""} */
+
+
+  create  table ""mimic"".""public"".""code_status__dbt_tmp""
+  as (
+    -- This query extracts:
+--    i) a patient's first code status
+--    ii) a patient's last code status
+--    iii) the time of the first entry of DNR or CMO
+
+
+
+with t1 as
+(
+  select icustay_id, charttime, value
+  -- use row number to identify first and last code status
+  , ROW_NUMBER() over (PARTITION BY icustay_id order by charttime) as rnfirst
+  , ROW_NUMBER() over (PARTITION BY icustay_id order by charttime desc) as rnlast
+
+  -- coalesce the values
+  , case
+      when value in ('Full Code','Full code') then 1
+    else 0 end as fullcode
+  , case
+      when value in ('Comfort Measures','Comfort measures only') then 1
+    else 0 end as cmo
+  , case
+      when value = 'CPR Not Indicate' then 1
+    else 0 end as dncpr -- only in CareVue, i.e. only possible for ~60-70% of patients
+  , case
+      when value in ('Do Not","client backend"
+16385,"mimic",17350,NULL,16384,"postgres","dbt","::1",NULL,60808,"2022-07-06 19:46:17.271551-07","2022-07-06 19:46:17.273786-07","2022-07-06 19:46:17.27504-07","2022-07-06 19:46:17.275046-07","IPC","BufferIO","active","2681","2672",9152935399174920383,"/* {""app"": ""dbt"", ""dbt_version"": ""1.1.0"", ""profile_name"": ""mimic"", ""target_name"": ""dev"", ""node_id"": ""model.mimic.central_line_durations""} */
+
+
+  create  table ""mimic"".""public"".""central_line_durations__dbt_tmp""
+  as (
+    with mv as
+(
+  select
+    pe.icustay_id
+  , pe.starttime, pe.endtime
+    , case
+        when (locationcategory <> 'Invasive Arterial' or locationcategory is null)
+          then 1
+        else 0
+      end as central_line
+  FROM procedureevents_mv pe
+  where pe.itemid in
+  (
+      224263 -- Multi Lumen | None | 12 | Processes
+    , 224264 -- PICC Line | None | 12 | Processes
+    , 224267 -- Cordis/Introducer | None | 12 | Processes
+    , 224268 -- Trauma line | None | 12 | Processes
+    , 225199 -- Triple Introducer | None | 12 | Processes
+    , 225202 -- Indwelling Port (PortaCath) | None | 12 | Processes
+    , 225203 -- Pheresis Catheter | None | 12 | Processes
+    , 225315 -- Tunneled (Hickman) Line | None | 12 | Processes
+    , 225752 -- Arterial Line | None | 12 | Processes
+    , 227719 ","client backend"
+16385,"mimic",17351,NULL,16384,"postgres","dbt","::1",NULL,60809,"2022-07-06 19:46:17.273603-07","2022-07-06 19:46:17.276972-07","2022-07-06 19:46:17.281889-07","2022-07-06 19:46:17.281892-07",NULL,NULL,"active","2686","2672",-6.320194645985697e+18,"/* {""app"": ""dbt"", ""dbt_version"": ""1.1.0"", ""profile_name"": ""mimic"", ""target_name"": ""dev"", ""node_id"": ""model.mimic.echo_data""} */
+
+
+  create  table ""mimic"".""public"".""echo_data__dbt_tmp""
+  as (
+    -- This code extracts structured data from echocardiographies
+-- You can join it to the text notes using ROW_ID
+-- Just note that ROW_ID will differ across versions of MIMIC-III.
+
+
+select ROW_ID
+  , subject_id, hadm_id
+  , chartdate
+  -- charttime is always null for echoes..
+  -- however, the time is available in the echo text, e.g.:
+  -- , substring(ne.text, 'Date/Time: [\[\]0-9*-]+ at ([0-9:]+)') as TIMESTAMP
+  -- we can therefore impute it and re-create charttime
+  , PARSE_DATETIME
+  (
+      '%Y-%m-%d%H:%M:%S',
+      FORMAT_DATE('%Y-%m-%d', chartdate)
+      || REGEXP_EXTRACT(ne.text, 'Date/Time: .+? at ([0-9]+:[0-9]{2})')
+      || ':00'
+   ) AS charttime
+
+  -- explanation of below substring:
+  --  'Indication: ' - matched verbatim
+  --  (.*?) - match any character
+  --  \n - the end of the line
+  -- substring only","client backend"
+16385,"mimic",17352,NULL,16384,"postgres","dbt","::1",NULL,60810,"2022-07-06 19:46:17.275768-07","2022-07-06 19:46:17.287387-07","2022-07-06 19:46:17.29324-07","2022-07-06 19:46:17.293245-07","IO","DataFileRead","active","2688","2672",-8.150022194315739e+18,"/* {""app"": ""dbt"", ""dbt_version"": ""1.1.0"", ""profile_name"": ""mimic"", ""target_name"": ""dev"", ""node_id"": ""model.mimic.adenosine_durations""} */
+
+
+  create  table ""mimic"".""public"".""adenosine_durations__dbt_tmp""
+  as (
+    -- This query extracts durations of adenosine administration
+-- Consecutive administrations are numbered 1, 2, ...
+-- Total time on the drug can be calculated from this table by grouping using ICUSTAY_ID
+
+-- *** COULD NOT FIND ADENOSINE IN THE INPUTEVENTS_MV TABLE ***
+-- This drug is rarely used - it could just be that it was never used in MetaVision.
+-- If using this code, ensure the durations make sense for carevue patients first
+
+with vasocv1 as
+(
+  select
+    icustay_id, charttime
+    -- case statement determining whether the ITEMID is an instance of vasopressor usage
+    , max(case when itemid = 4649 then 1 else 0 end) as vaso -- adenosine
+
+    -- the 'stopped' column indicates if a vasopressor has been disconnected
+    , 0 as vaso_stopped
+    , max(case when itemid = 4649 and valuenum is not","client backend"
+16385,"mimic",17353,NULL,16384,"postgres","dbt","::1",NULL,60811,"2022-07-06 19:46:17.276017-07","2022-07-06 19:46:17.287969-07","2022-07-06 19:46:17.290874-07","2022-07-06 19:46:17.290876-07","IO","BufFileWrite","active","2687","2672",-8.838917441111855e+17,"/* {""app"": ""dbt"", ""dbt_version"": ""1.1.0"", ""profile_name"": ""mimic"", ""target_name"": ""dev"", ""node_id"": ""model.mimic.icustay_times""} */
+
+
+  create  table ""mimic"".""public"".""icustay_times__dbt_tmp""
+  as (
+    -- create a table which has fuzzy boundaries on hospital admission
+-- involves first creating a lag/lead version of disch/admit time
+with h as
+(
+  select
+    subject_id, hadm_id, admittime, dischtime
+    , lag (dischtime) over (partition by subject_id order by admittime) as dischtime_lag
+    , lead (admittime) over (partition by subject_id order by admittime) as admittime_lead
+  FROM admissions
+)
+, adm as
+(
+  select
+    h.subject_id, h.hadm_id
+    -- this rule is:
+    --  if there are two hospitalizations within 24 hours, set the start/stop
+    --  time as half way between the two admissions
+    , case
+        when h.dischtime_lag is not null
+        and h.dischtime_lag > (DATETIME_SUB(h.admittime, INTERVAL '24 HOUR'))
+          then DATETIME_SUB(h.admittime, (DATETIME_DIFF(h.admittime, h.dischtime_lag, 'SECO","client backend"
+16385,"mimic",17354,NULL,16384,"postgres","dbt","::1",NULL,60812,"2022-07-06 19:46:17.276635-07","2022-07-06 19:46:17.28678-07","2022-07-06 19:46:17.290392-07","2022-07-06 19:46:17.290422-07","IO","DataFileRead","active","2678","2672",-7.945761124861692e+18,"/* {""app"": ""dbt"", ""dbt_version"": ""1.1.0"", ""profile_name"": ""mimic"", ""target_name"": ""dev"", ""node_id"": ""model.mimic.elixhauser_ahrq_v37""} */
+
+
+  create  table ""mimic"".""public"".""elixhauser_ahrq_v37__dbt_tmp""
+  as (
+    -- This code uses the latest version of Elixhauser provided by AHRQ
+ 
+
+with eliflg as (
+    select
+        hadm_id,
+        seq_num,
+        icd9_code -- note that these codes will seem incomplete at first
+        -- for example, CHF is missing a lot of codes referenced in the literature (402.11, 402.91, etc)
+        -- these codes are captured by hypertension flags instead
+        -- later there are some complicated rules which confirm/reject those codes as chf
+,
+        CASE
+            when icd9_code = '39891' then 1
+            when icd9_code between '4280'
+            and '4289' then 1
+        end as chf
+        /* Congestive heart failure */
+        -- cardiac arrhythmias is removed in up to date versions
+,
+        case
+            when icd9_code = '42610' then 1
+            when icd9_code =","client backend"
+16385,"mimic",17355,NULL,16384,"postgres","dbt","::1",NULL,60813,"2022-07-06 19:46:17.27794-07","2022-07-06 19:46:17.288452-07","2022-07-06 19:46:17.295375-07","2022-07-06 19:46:17.295381-07","IO","DataFileRead","active","2674","2672",4479922319540959827,"/* {""app"": ""dbt"", ""dbt_version"": ""1.1.0"", ""profile_name"": ""mimic"", ""target_name"": ""dev"", ""node_id"": ""model.mimic.epinephrine_dose""} */
+
+
+  create  table ""mimic"".""public"".""epinephrine_dose__dbt_tmp""
+  as (
+    -- This query extracts dose+durations of epinephrine administration
+
+-- Requires the weightfirstday table
+
+-- Get drug administration data from CareVue first
+with vasocv1 as
+(
+  select
+    cv.icustay_id, cv.charttime
+    -- case statement determining whether the ITEMID is an instance of vasopressor usage
+    , max(case when itemid in (30044,30119,30309) then 1 else 0 end) as vaso -- epinephrine
+
+    -- the 'stopped' column indicates if a vasopressor has been disconnected
+    , max(case when itemid in (30044,30119,30309) and (stopped = 'Stopped' OR stopped like 'D/C%') then 1
+          else 0 end) as vaso_stopped
+
+    , max(case when itemid in (30044,30119,30309) and rate is not null then 1 else 0 end) as vaso_null
+    , max(case
+            when itemid = 30044 and wd.weight is null then rate / 80.0 -- s","client backend"
+16385,"mimic",17356,NULL,16384,"postgres","dbt","::1",NULL,60814,"2022-07-06 19:46:17.285887-07","2022-07-06 19:46:17.288801-07","2022-07-06 19:46:17.29657-07","2022-07-06 19:46:17.296575-07","IO","DataFileRead","active","2691","2672",-9.215182420367426e+18,"/* {""app"": ""dbt"", ""dbt_version"": ""1.1.0"", ""profile_name"": ""mimic"", ""target_name"": ""dev"", ""node_id"": ""model.mimic.crrt_durations""} */
+
+
+  create  table ""mimic"".""public"".""crrt_durations__dbt_tmp""
+  as (
+    with crrt_settings as
+(
+  select ce.icustay_id, ce.charttime
+  , max(
+      case
+        when ce.itemid in
+        (
+          224149, -- Access Pressure
+          224144, -- Blood Flow (ml/min)
+          228004, -- Citrate (ACD-A)
+          225183, -- Current Goal
+          225977, -- Dialysate Fluid
+          224154, -- Dialysate Rate
+          224151, -- Effluent Pressure
+          224150, -- Filter Pressure
+          225958, -- Heparin Concentration (units/mL)
+          224145, -- Heparin Dose (per hour)
+          224191, -- Hourly Patient Fluid Removal
+          228005, -- PBP (Prefilter) Replacement Rate
+          228006, -- Post Filter Replacement Rate
+          225976, -- Replacement Fluid
+          224153, -- Replacement Rate
+          224152, -- Return Pressure
+          226457  -- Ultrafiltrate O","client backend"
+16385,"mimic",17357,NULL,16384,"postgres","dbt","::1",NULL,60815,"2022-07-06 19:46:17.286223-07","2022-07-06 19:46:17.288753-07","2022-07-06 19:46:17.292116-07","2022-07-06 19:46:17.292129-07","IO","DataFileExtend","active","2676","2672",-2.2277869122017958e+18,"/* {""app"": ""dbt"", ""dbt_version"": ""1.1.0"", ""profile_name"": ""mimic"", ""target_name"": ""dev"", ""node_id"": ""model.mimic.elixhauser_ahrq_v37_no_drg""} */
+
+
+  create  table ""mimic"".""public"".""elixhauser_ahrq_v37_no_drg__dbt_tmp""
+  as (
+    -- This code uses the latest version of Elixhauser provided by AHRQ
+-- However, it does *not* filter based on diagnosis related groups (DRGs)
+-- As such, ""comorbidities"" identified are more likely to be associated with the primary reason for their hospital stay
+
+-- The code:
+--  removes ""primary"" ICD9_CODE (seq_num != 1)
+--  uses AHRQ published rules to define comorbidities
+ 
+
+with
+eliflg as
+(
+select hadm_id, seq_num, icd9_code
+-- note that these codes will seem incomplete at first
+-- for example, CHF is missing a lot of codes referenced in the literature (402.11, 402.91, etc)
+-- these codes are captured by hypertension flags instead
+-- later there are some complicated rules which confirm/reject those codes as chf
+, CASE
+  when icd9_code = '39891' then 1
+  when icd9_code between '428","client backend"
+16385,"mimic",17358,NULL,16384,"postgres","dbt","::1",NULL,60816,"2022-07-06 19:46:17.28834-07","2022-07-06 19:46:17.289635-07","2022-07-06 19:46:17.29649-07","2022-07-06 19:46:17.296497-07","IO","DataFileRead","active","2690","2672",4180285220369374550,"/* {""app"": ""dbt"", ""dbt_version"": ""1.1.0"", ""profile_name"": ""mimic"", ""target_name"": ""dev"", ""node_id"": ""model.mimic.milrinone_durations""} */
+
+
+  create  table ""mimic"".""public"".""milrinone_durations__dbt_tmp""
+  as (
+    -- This query extracts durations of milrinone administration
+-- Consecutive administrations are numbered 1, 2, ...
+-- Total time on the drug can be calculated from this table by grouping using ICUSTAY_ID
+
+-- Get drug administration data from CareVue first
+with vasocv1 as
+(
+  select
+    icustay_id, charttime
+    -- case statement determining whether the ITEMID is an instance of vasopressor usage
+    , max(case when itemid = 30125 then 1 else 0 end) as vaso -- milrinone
+
+    -- the 'stopped' column indicates if a vasopressor has been disconnected
+    , max(case when itemid = 30125 and (stopped = 'Stopped' OR stopped like 'D/C%') then 1
+          else 0 end) as vaso_stopped
+
+    , max(case when itemid = 30125 and rate is not null then 1 else 0 end) as vaso_null
+    , max(case when itemid = 30125 then","client backend"
+16385,"mimic",17359,NULL,16384,"postgres","dbt","::1",NULL,60818,"2022-07-06 19:46:17.289343-07","2022-07-06 19:46:17.291076-07","2022-07-06 19:46:17.297306-07","2022-07-06 19:46:17.297321-07","IPC","BufferIO","active","2679","2672",4508958039139799610,"/* {""app"": ""dbt"", ""dbt_version"": ""1.1.0"", ""profile_name"": ""mimic"", ""target_name"": ""dev"", ""node_id"": ""model.mimic.neuroblock_dose""} */
+
+
+  create  table ""mimic"".""public"".""neuroblock_dose__dbt_tmp""
+  as (
+    -- This query extracts dose+durations of neuromuscular blocking agents
+-- Note: we assume that injections will be filtered for carevue as they will have starttime = stopttime.
+
+-- Get drug administration data from CareVue and MetaVision
+-- metavision is simple and only requires one temporary table
+
+with drugmv as
+(
+  select
+      icustay_id, orderid
+    , rate as drug_rate
+    , amount as drug_amount
+    , starttime
+    , endtime
+  from inputevents_mv
+  where itemid in
+  (
+      222062 -- Vecuronium (664 rows, 154 infusion rows)
+    , 221555 -- Cisatracurium (9334 rows, 8970 infusion rows)
+  )
+  and statusdescription != 'Rewritten' -- only valid orders
+  and rate is not null -- only continuous infusions
+)
+, drugcv1 as
+(
+  select
+    icustay_id, charttime
+    -- where clause below ensures all rows are inst","client backend"
+16385,"mimic",17360,NULL,16384,"postgres","dbt","::1",NULL,60817,"2022-07-06 19:46:17.293679-07","2022-07-06 19:46:17.305897-07","2022-07-06 19:46:17.308591-07","2022-07-06 19:46:17.308602-07","IO","BufFileWrite","active","2677","2672",2941690319589626609,"/* {""app"": ""dbt"", ""dbt_version"": ""1.1.0"", ""profile_name"": ""mimic"", ""target_name"": ""dev"", ""node_id"": ""model.mimic.elixhauser_quan""} */
+
+
+  create  table ""mimic"".""public"".""elixhauser_quan__dbt_tmp""
+  as (
+    -- This code calculates the Elixhauser comorbidities as defined in Quan et. al 2009:
+-- Quan, Hude, et al. ""Coding algorithms for defining comorbidities in
+-- ICD-9-CM and ICD-10 administrative data."" Medical care (2005): 1130-1139.
+--  https://www.ncbi.nlm.nih.gov/pubmed/16224307
+-- Quan defined an ""Enhanced ICD-9"" coding scheme for deriving Elixhauser
+-- comorbidities from ICD-9 billing codes. This script implements that calculation.
+-- The logic of the code is roughly that, if the comorbidity lists a length 3
+-- ICD-9 code (e.g. 585), then we only require a match on the first 3 characters.
+-- This code derives each comorbidity as follows:
+--  1) ICD9_CODE is directly compared to 5 character codes
+--  2) The first 4 characters of ICD9_CODE are compared to 4 character codes
+--  3) The first 3 characters ","client backend"
+16385,"mimic",17363,NULL,16384,"postgres","dbt","::1",NULL,60821,"2022-07-06 19:46:17.299731-07","2022-07-06 19:46:17.304382-07","2022-07-06 19:46:17.306975-07","2022-07-06 19:46:17.306985-07","IPC","BufferIO","active","2684","2672",-3.515138520250647e+17,"/* {""app"": ""dbt"", ""dbt_version"": ""1.1.0"", ""profile_name"": ""mimic"", ""target_name"": ""dev"", ""node_id"": ""model.mimic.isuprel_durations""} */
+
+
+  create  table ""mimic"".""public"".""isuprel_durations__dbt_tmp""
+  as (
+    -- This query extracts durations of isuprel administration
+-- Consecutive administrations are numbered 1, 2, ...
+-- Total time on the drug can be calculated from this table by grouping using ICUSTAY_ID
+
+-- Get drug administration data from CareVue first
+with vasocv1 as
+(
+  select
+    icustay_id, charttime
+    -- case statement determining whether the ITEMID is an instance of vasopressor usage
+    , max(case when itemid = 30046 then 1 else 0 end) as vaso -- Isuprel
+
+    -- the 'stopped' column indicates if a vasopressor has been disconnected
+    , max(case when itemid = 30046 and (stopped = 'Stopped' OR stopped like 'D/C%') then 1
+          else 0 end) as vaso_stopped
+
+    , max(case when itemid = 30046 and rate is not null then 1 else 0 end) as vaso_null
+    , max(case when itemid = 30046 then rate el","client backend"
+16385,"mimic",17361,NULL,16384,"postgres","dbt","::1",NULL,60819,"2022-07-06 19:46:17.296841-07","2022-07-06 19:46:17.304806-07","2022-07-06 19:46:17.308552-07","2022-07-06 19:46:17.308558-07","IPC","BufferIO","active","2689","2672",1871918886958072079,"/* {""app"": ""dbt"", ""dbt_version"": ""1.1.0"", ""profile_name"": ""mimic"", ""target_name"": ""dev"", ""node_id"": ""model.mimic.dobutamine_durations""} */
+
+
+  create  table ""mimic"".""public"".""dobutamine_durations__dbt_tmp""
+  as (
+    -- This query extracts durations of dobutamine administration
+-- Consecutive administrations are numbered 1, 2, ...
+-- Total time on the drug can be calculated from this table by grouping using ICUSTAY_ID
+-- Get drug administration data from CareVue first
+with vasocv1 as (
+  select
+    icustay_id,
+    charttime -- case statement determining whether the ITEMID is an instance of vasopressor usage
+,
+    max(
+      case
+        when itemid in (30042, 30306) then 1
+        else 0
+      end
+    ) as vaso -- dobutamine
+    -- the 'stopped' column indicates if a vasopressor has been disconnected
+,
+    max(
+      case
+        when itemid in (30042, 30306)
+        and (
+          stopped = 'Stopped'
+          OR stopped like 'D/C%'
+        ) then 1
+        else 0
+      end
+    ) as vaso_stopped,
+    max(
+","client backend"
+16385,"mimic",17383,NULL,16384,"postgres","dbt","::1",NULL,60829,"2022-07-06 19:46:19.163018-07","2022-07-06 19:46:19.178663-07","2022-07-06 19:46:19.18136-07","2022-07-06 19:46:19.181367-07","IPC","BufferIO","active","2693","2672",777933196958637238,"/* {""app"": ""dbt"", ""dbt_version"": ""1.1.0"", ""profile_name"": ""mimic"", ""target_name"": ""dev"", ""node_id"": ""model.mimic.norepinephrine_dose""} */
+
+
+  create  table ""mimic"".""public"".""norepinephrine_dose__dbt_tmp""
+  as (
+    -- This query extracts dose+durations of norepinephrine administration
+-- Total time on the drug can be calculated from this table by grouping using ICUSTAY_ID
+
+-- Get drug administration data from CareVue first
+with vasocv1 as
+(
+  select
+    cv.icustay_id, cv.charttime
+    -- case statement determining whether the ITEMID is an instance of vasopressor usage
+    , max(case when itemid in (30047,30120) then 1 else 0 end) as vaso -- norepinephrine
+
+    -- the 'stopped' column indicates if a vasopressor has been disconnected
+    , max(case when itemid in (30047,30120) and (stopped = 'Stopped' OR stopped like 'D/C%') then 1
+          else 0 end) as vaso_stopped
+
+  -- case statement determining whether the ITEMID is an instance of vasopressor usage
+
+    , max(case when itemid in (30047,30120) and rate i","client backend"
+16385,"mimic",17365,NULL,16384,"postgres","dbt","::1",NULL,60823,"2022-07-06 19:46:17.304142-07","2022-07-06 19:46:17.306861-07","2022-07-06 19:46:17.311093-07","2022-07-06 19:46:17.311104-07","IPC","BufferIO","active","2675","2672",2657692719037299500,"/* {""app"": ""dbt"", ""dbt_version"": ""1.1.0"", ""profile_name"": ""mimic"", ""target_name"": ""dev"", ""node_id"": ""model.mimic.dopamine_dose""} */
+
+
+  create  table ""mimic"".""public"".""dopamine_dose__dbt_tmp""
+  as (
+    -- This query extracts dose+durations of dopamine administration
+
+-- Get drug administration data from CareVue first
+with vasocv1 as
+(
+  select
+    icustay_id, charttime
+    -- case statement determining whether the ITEMID is an instance of vasopressor usage
+    , max(case when itemid in (30043,30307) then 1 else 0 end) as vaso -- dopamine
+
+    -- the 'stopped' column indicates if a vasopressor has been disconnected
+    , max(case when itemid in (30043,30307) and (stopped = 'Stopped' OR stopped like 'D/C%') then 1
+          else 0 end) as vaso_stopped
+
+    , max(case when itemid in (30043,30307) and rate is not null then 1 else 0 end) as vaso_null
+    , max(case when itemid in (30043,30307) then rate else null end) as vaso_rate
+    , max(case when itemid in (30043,30307) then amount else null end) as vaso_amo","client backend"
+16385,"mimic",17364,NULL,16384,"postgres","dbt","::1",NULL,60822,"2022-07-06 19:46:17.305355-07","2022-07-06 19:46:17.309291-07","2022-07-06 19:46:17.315142-07","2022-07-06 19:46:17.31515-07","IPC","BufferIO","active","2682","2672",-3.6425861352374584e+18,"/* {""app"": ""dbt"", ""dbt_version"": ""1.1.0"", ""profile_name"": ""mimic"", ""target_name"": ""dev"", ""node_id"": ""model.mimic.dopamine_durations""} */
+
+
+  create  table ""mimic"".""public"".""dopamine_durations__dbt_tmp""
+  as (
+    -- This query extracts durations of dopamine administration
+-- Consecutive administrations are numbered 1, 2, ...
+-- Total time on the drug can be calculated from this table by grouping using ICUSTAY_ID
+
+-- Get drug administration data from CareVue first
+with vasocv1 as
+(
+  select
+    icustay_id, charttime
+    -- case statement determining whether the ITEMID is an instance of vasopressor usage
+    , max(case when itemid in (30043,30307) then 1 else 0 end) as vaso -- dopamine
+
+    -- the 'stopped' column indicates if a vasopressor has been disconnected
+    , max(case when itemid in (30043,30307) and (stopped = 'Stopped' OR stopped like 'D/C%') then 1
+          else 0 end) as vaso_stopped
+
+    , max(case when itemid in (30043,30307) and rate is not null then 1 else 0 end) as vaso_null
+    , max(case w","client backend"
+16385,"mimic",17367,17349,16384,"postgres","dbt",NULL,NULL,NULL,"2022-07-06 19:46:17.323998-07","2022-07-06 19:46:17.273311-07","2022-07-06 19:46:17.276099-07","2022-07-06 19:46:17.328161-07","IO","DataFileRead","active",NULL,"2672",695002176672842774,"/* {""app"": ""dbt"", ""dbt_version"": ""1.1.0"", ""profile_name"": ""mimic"", ""target_name"": ""dev"", ""node_id"": ""model.mimic.dobutamine_dose""} */
+
+
+  create  table ""mimic"".""public"".""dobutamine_dose__dbt_tmp""
+  as (
+    -- This query extracts dose+durations of dopamine administration
+
+-- Get drug administration data from CareVue first
+with vasocv1 as
+(
+    select
+    icustay_id, charttime
+    -- case statement determining whether the ITEMID is an instance of vasopressor usage
+    , max(case when itemid in (30042,30306) then 1 else 0 end) as vaso -- dobutamine
+
+    -- the 'stopped' column indicates if a vasopressor has been disconnected
+    , max(case when itemid in (30042,30306) and (stopped = 'Stopped' OR stopped like 'D/C%') then 1
+          else 0 end) as vaso_stopped
+
+    , max(case when itemid in (30042,30306) and rate is not null then 1 else 0 end) as vaso_null
+    , max(case when itemid in (30042,30306) then rate else null end) as vaso_rate
+    , max(case when itemid in (30042,30306) then amount else null end) as ","parallel worker"
+16385,"mimic",17366,17355,16384,"postgres","dbt",NULL,NULL,NULL,"2022-07-06 19:46:17.324567-07","2022-07-06 19:46:17.288452-07","2022-07-06 19:46:17.295375-07","2022-07-06 19:46:17.327868-07","IO","BufFileWrite","active",NULL,"2672",4479922319540959827,"/* {""app"": ""dbt"", ""dbt_version"": ""1.1.0"", ""profile_name"": ""mimic"", ""target_name"": ""dev"", ""node_id"": ""model.mimic.epinephrine_dose""} */
+
+
+  create  table ""mimic"".""public"".""epinephrine_dose__dbt_tmp""
+  as (
+    -- This query extracts dose+durations of epinephrine administration
+
+-- Requires the weightfirstday table
+
+-- Get drug administration data from CareVue first
+with vasocv1 as
+(
+  select
+    cv.icustay_id, cv.charttime
+    -- case statement determining whether the ITEMID is an instance of vasopressor usage
+    , max(case when itemid in (30044,30119,30309) then 1 else 0 end) as vaso -- epinephrine
+
+    -- the 'stopped' column indicates if a vasopressor has been disconnected
+    , max(case when itemid in (30044,30119,30309) and (stopped = 'Stopped' OR stopped like 'D/C%') then 1
+          else 0 end) as vaso_stopped
+
+    , max(case when itemid in (30044,30119,30309) and rate is not null then 1 else 0 end) as vaso_null
+    , max(case
+            when itemid = 30044 and wd.weight is null then rate / 80.0 -- s","parallel worker"
+16385,"mimic",17368,17355,16384,"postgres","dbt",NULL,NULL,NULL,"2022-07-06 19:46:17.325072-07","2022-07-06 19:46:17.288452-07","2022-07-06 19:46:17.295375-07","2022-07-06 19:46:17.333538-07","IO","BufFileWrite","active",NULL,"2672",4479922319540959827,"/* {""app"": ""dbt"", ""dbt_version"": ""1.1.0"", ""profile_name"": ""mimic"", ""target_name"": ""dev"", ""node_id"": ""model.mimic.epinephrine_dose""} */
+
+
+  create  table ""mimic"".""public"".""epinephrine_dose__dbt_tmp""
+  as (
+    -- This query extracts dose+durations of epinephrine administration
+
+-- Requires the weightfirstday table
+
+-- Get drug administration data from CareVue first
+with vasocv1 as
+(
+  select
+    cv.icustay_id, cv.charttime
+    -- case statement determining whether the ITEMID is an instance of vasopressor usage
+    , max(case when itemid in (30044,30119,30309) then 1 else 0 end) as vaso -- epinephrine
+
+    -- the 'stopped' column indicates if a vasopressor has been disconnected
+    , max(case when itemid in (30044,30119,30309) and (stopped = 'Stopped' OR stopped like 'D/C%') then 1
+          else 0 end) as vaso_stopped
+
+    , max(case when itemid in (30044,30119,30309) and rate is not null then 1 else 0 end) as vaso_null
+    , max(case
+            when itemid = 30044 and wd.weight is null then rate / 80.0 -- s","parallel worker"
+16385,"mimic",17370,17365,16384,"postgres","dbt",NULL,NULL,NULL,"2022-07-06 19:46:17.327079-07","2022-07-06 19:46:17.306861-07","2022-07-06 19:46:17.311093-07","2022-07-06 19:46:17.33292-07","IPC","BufferIO","active",NULL,"2672",2657692719037299500,"/* {""app"": ""dbt"", ""dbt_version"": ""1.1.0"", ""profile_name"": ""mimic"", ""target_name"": ""dev"", ""node_id"": ""model.mimic.dopamine_dose""} */
+
+
+  create  table ""mimic"".""public"".""dopamine_dose__dbt_tmp""
+  as (
+    -- This query extracts dose+durations of dopamine administration
+
+-- Get drug administration data from CareVue first
+with vasocv1 as
+(
+  select
+    icustay_id, charttime
+    -- case statement determining whether the ITEMID is an instance of vasopressor usage
+    , max(case when itemid in (30043,30307) then 1 else 0 end) as vaso -- dopamine
+
+    -- the 'stopped' column indicates if a vasopressor has been disconnected
+    , max(case when itemid in (30043,30307) and (stopped = 'Stopped' OR stopped like 'D/C%') then 1
+          else 0 end) as vaso_stopped
+
+    , max(case when itemid in (30043,30307) and rate is not null then 1 else 0 end) as vaso_null
+    , max(case when itemid in (30043,30307) then rate else null end) as vaso_rate
+    , max(case when itemid in (30043,30307) then amount else null end) as vaso_amo","parallel worker"
+16385,"mimic",17369,17349,16384,"postgres","dbt",NULL,NULL,NULL,"2022-07-06 19:46:17.326908-07","2022-07-06 19:46:17.273311-07","2022-07-06 19:46:17.276099-07","2022-07-06 19:46:17.333454-07","IPC","BufferIO","active",NULL,"2672",695002176672842774,"/* {""app"": ""dbt"", ""dbt_version"": ""1.1.0"", ""profile_name"": ""mimic"", ""target_name"": ""dev"", ""node_id"": ""model.mimic.dobutamine_dose""} */
+
+
+  create  table ""mimic"".""public"".""dobutamine_dose__dbt_tmp""
+  as (
+    -- This query extracts dose+durations of dopamine administration
+
+-- Get drug administration data from CareVue first
+with vasocv1 as
+(
+    select
+    icustay_id, charttime
+    -- case statement determining whether the ITEMID is an instance of vasopressor usage
+    , max(case when itemid in (30042,30306) then 1 else 0 end) as vaso -- dobutamine
+
+    -- the 'stopped' column indicates if a vasopressor has been disconnected
+    , max(case when itemid in (30042,30306) and (stopped = 'Stopped' OR stopped like 'D/C%') then 1
+          else 0 end) as vaso_stopped
+
+    , max(case when itemid in (30042,30306) and rate is not null then 1 else 0 end) as vaso_null
+    , max(case when itemid in (30042,30306) then rate else null end) as vaso_rate
+    , max(case when itemid in (30042,30306) then amount else null end) as ","parallel worker"
+16385,"mimic",17371,17365,16384,"postgres","dbt",NULL,NULL,NULL,"2022-07-06 19:46:17.332261-07","2022-07-06 19:46:17.306861-07","2022-07-06 19:46:17.311093-07","2022-07-06 19:46:17.333179-07","IO","DataFileRead","active",NULL,"2672",2657692719037299500,"/* {""app"": ""dbt"", ""dbt_version"": ""1.1.0"", ""profile_name"": ""mimic"", ""target_name"": ""dev"", ""node_id"": ""model.mimic.dopamine_dose""} */
+
+
+  create  table ""mimic"".""public"".""dopamine_dose__dbt_tmp""
+  as (
+    -- This query extracts dose+durations of dopamine administration
+
+-- Get drug administration data from CareVue first
+with vasocv1 as
+(
+  select
+    icustay_id, charttime
+    -- case statement determining whether the ITEMID is an instance of vasopressor usage
+    , max(case when itemid in (30043,30307) then 1 else 0 end) as vaso -- dopamine
+
+    -- the 'stopped' column indicates if a vasopressor has been disconnected
+    , max(case when itemid in (30043,30307) and (stopped = 'Stopped' OR stopped like 'D/C%') then 1
+          else 0 end) as vaso_stopped
+
+    , max(case when itemid in (30043,30307) and rate is not null then 1 else 0 end) as vaso_null
+    , max(case when itemid in (30043,30307) then rate else null end) as vaso_rate
+    , max(case when itemid in (30043,30307) then amount else null end) as vaso_amo","parallel worker"
+16385,"mimic",17372,17359,16384,"postgres","dbt",NULL,NULL,NULL,"2022-07-06 19:46:17.33492-07","2022-07-06 19:46:17.291076-07","2022-07-06 19:46:17.297306-07","2022-07-06 19:46:17.336-07","IPC","BufferIO","active",NULL,"2672",4508958039139799610,"/* {""app"": ""dbt"", ""dbt_version"": ""1.1.0"", ""profile_name"": ""mimic"", ""target_name"": ""dev"", ""node_id"": ""model.mimic.neuroblock_dose""} */
+
+
+  create  table ""mimic"".""public"".""neuroblock_dose__dbt_tmp""
+  as (
+    -- This query extracts dose+durations of neuromuscular blocking agents
+-- Note: we assume that injections will be filtered for carevue as they will have starttime = stopttime.
+
+-- Get drug administration data from CareVue and MetaVision
+-- metavision is simple and only requires one temporary table
+
+with drugmv as
+(
+  select
+      icustay_id, orderid
+    , rate as drug_rate
+    , amount as drug_amount
+    , starttime
+    , endtime
+  from inputevents_mv
+  where itemid in
+  (
+      222062 -- Vecuronium (664 rows, 154 infusion rows)
+    , 221555 -- Cisatracurium (9334 rows, 8970 infusion rows)
+  )
+  and statusdescription != 'Rewritten' -- only valid orders
+  and rate is not null -- only continuous infusions
+)
+, drugcv1 as
+(
+  select
+    icustay_id, charttime
+    -- where clause below ensures all rows are inst","parallel worker"
+NULL,NULL,5509,NULL,NULL,NULL,"",NULL,NULL,NULL,"2022-07-05 23:25:15.751435-07",NULL,NULL,NULL,"Activity","BgWriterMain",NULL,NULL,NULL,NULL,"","background writer"
+NULL,NULL,5508,NULL,NULL,NULL,"",NULL,NULL,NULL,"2022-07-05 23:25:15.751271-07",NULL,NULL,NULL,"Activity","CheckpointerMain",NULL,NULL,NULL,NULL,"","checkpointer"
+NULL,NULL,5510,NULL,NULL,NULL,"",NULL,NULL,NULL,"2022-07-05 23:25:15.751701-07",NULL,NULL,NULL,"Activity","WalWriterMain",NULL,NULL,NULL,NULL,"","walwriter"
