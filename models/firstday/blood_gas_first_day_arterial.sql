@@ -106,7 +106,11 @@ icustay_id, charttime
 , specimen_prob
 
 -- oxygen related parameters
+<<<<<<< HEAD
 , so2, spo2 -- note spo2 is FROM chartevents
+=======
+, so2, spo2 -- note spo2 is FROM `physionet-data.mimiciii_clinical.chartevents`
+>>>>>>> 8e06167dcbddfc29d569572501f7546fbd5b06a2
 , po2, pco2
 , fio2_chartevents, fio2
 , aado2
