@@ -33,11 +33,7 @@
     -- inner join admissions adm
     --   on rrt.hadm_id = adm.hadm_id
     -- ) rrt
-<<<<<<< HEAD
     -- where rn = 1
-=======
-    -- where rn = 1;
->>>>>>> 8e06167dcbddfc29d569572501f7546fbd5b06a2
 
 with cv as
 (
@@ -54,7 +50,6 @@ with cv as
     on ie.icustay_id = ce.icustay_id
     and ce.itemid in
     (
-<<<<<<< HEAD
        152 -- "Dialysis Type"61449
       ,148 -- "Dialysis Access Site"60335
       ,149 -- "Dialysis Access Type"60030
@@ -62,15 +57,6 @@ with cv as
       ,147 -- "Dialysate Infusing"56605
       ,151 -- "Dialysis Site Appear"37345
       ,150 -- "Dialysis Machine"27472
-=======
-       152 -- "Dialysis Type";61449
-      ,148 -- "Dialysis Access Site";60335
-      ,149 -- "Dialysis Access Type";60030
-      ,146 -- "Dialysate Flow ml/hr";57445
-      ,147 -- "Dialysate Infusing";56605
-      ,151 -- "Dialysis Site Appear";37345
-      ,150 -- "Dialysis Machine";27472
->>>>>>> 8e06167dcbddfc29d569572501f7546fbd5b06a2
       ,229 -- INV Line#1 [Type]
       ,235 -- INV Line#2 [Type]
       ,241 -- INV Line#3 [Type]
