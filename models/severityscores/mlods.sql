@@ -61,8 +61,8 @@ with cpap as
   , PaO2FiO2
   , case when vd.icustay_id is not null then 1 else 0 end as vent
   , case when cp.icustay_id is not null then 1 else 0 end as cpap
-  from blood_gas_first_day_arterial bg
-  left join ventilation_durations vd
+  from {{ref('blood_gas_first_day_arterial')}} bg
+  left join {{ref('ventilation_durations')}} vd
     on bg.icustay_id = vd.icustay_id
     and bg.charttime >= vd.starttime
     and bg.charttime <= vd.endtime
@@ -114,11 +114,11 @@ left join pafi2 pf
   on ie.icustay_id = pf.icustay_id
 
 -- join to custom tables to get more data....
-left join gcs_first_day gcs
+left join {{ref('gcs_first_day')}} gcs
   on ie.icustay_id = gcs.icustay_id
-left join vitals_first_day vital
+left join {{ref('vitals_first_day')}} vital
   on ie.icustay_id = vital.icustay_id
-left join labs_first_day labs
+left join {{ref('labs_first_day')}} labs
   on ie.icustay_id = labs.icustay_id
 )
 , scorecomp as

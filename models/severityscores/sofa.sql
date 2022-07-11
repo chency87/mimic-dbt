@@ -66,7 +66,7 @@ with wt AS
 , echo2 as(
   select ie.icustay_id, avg(weight * 0.45359237) as weight
   FROM icustays ie
-  left join echo_data echo
+  left join {{ref('echo_data')}} echo
     on ie.hadm_id = echo.hadm_id
     and echo.charttime > DATETIME_SUB(ie.intime, INTERVAL '7' DAY)
     and echo.charttime < DATETIME_ADD(ie.intime, INTERVAL '1' DAY)
@@ -124,8 +124,8 @@ with wt AS
   select bg.icustay_id, bg.charttime
   , pao2fio2
   , case when vd.icustay_id is not null then 1 else 0 end as isvent
-  from blood_gas_first_day_arterial bg
-  left join ventilation_durations vd
+  from {{ref('blood_gas_first_day_arterial')}} bg
+  left join {{ref('ventilation_durations')}} vd
     on bg.icustay_id = vd.icustay_id
     and bg.charttime >= vd.starttime
     and bg.charttime <= vd.endtime
@@ -169,13 +169,13 @@ left join vaso_mv mv
   on ie.icustay_id = mv.icustay_id
 left join pafi2 pf
  on ie.icustay_id = pf.icustay_id
-left join vitals_first_day v
+left join {{ref('vitals_first_day')}} v
   on ie.icustay_id = v.icustay_id
-left join labs_first_day l
+left join {{ref('labs_first_day')}} l
   on ie.icustay_id = l.icustay_id
-left join urine_output_first_day uo
+left join {{ref('urine_output_first_day')}} uo
   on ie.icustay_id = uo.icustay_id
-left join gcs_first_day gcs
+left join {{ref('gcs_first_day')}} gcs
   on ie.icustay_id = gcs.icustay_id
 )
 , scorecalc as

@@ -27,9 +27,9 @@ select ie.icustay_id
   , v.resprate_max
   , gcs.mingcs
 FROM icustays ie
-left join vitals_first_day v
+left join {{ref("vitals_first_day")}} v
   on ie.icustay_id = v.icustay_id
-left join gcs_first_day gcs
+left join {{ref('gcs_first_day')}} gcs
   on ie.icustay_id = gcs.icustay_id
 )
 , scorecalc as

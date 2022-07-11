@@ -102,13 +102,13 @@ inner join patients pat
 left join surgflag sf
   on ie.icustay_id = sf.icustay_id
 -- join to custom tables to get more data....
-left join gcs_first_day gcs
+left join {{ref('gcs_first_day')}} gcs
   on ie.icustay_id = gcs.icustay_id
-left join vitals_first_day vital
+left join {{ref('vitals_first_day')}} vital
   on ie.icustay_id = vital.icustay_id
-left join urine_output_first_day uo
+left join {{ref('urine_output_first_day')}} uo
   on ie.icustay_id = uo.icustay_id
-left join ventilation_first_day vent
+left join {{ref('ventilation_first_day')}} vent
   on ie.icustay_id = vent.icustay_id
 )
 , scorecomp as
