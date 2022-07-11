@@ -25,12 +25,12 @@ select
   -- create integers for each charttime in hours from admission
   -- so 0 is admission time, 1 is one hour after admission, etc, up to ICU disch
   --  we allow 24 hours before ICU admission (to grab labs before admit)
-  , GENERATE_ARRAY(-24, CEIL(DATETIME_DIFF(it.outtime_hr, it.intime_hr, 'HOUR'))) as hrs
+  , GENERATE_ARRAY(-24, CEIL(DATETIME_DIFF(it.outtime_hr, it.intime_hr, 'HOUR'))::integer) as hrs
 
   from {{ ref ('icustay_times')}} it
 )
 SELECT icustay_id
-, CAST(hr AS INT64) as hr
-, DATETIME_ADD(endtime,  (CAST(hr AS INT64) || 'HOUR')::INTERVAL) as endtime
+, CAST(hr AS integer) as hr
+, DATETIME_ADD(endtime,  (CAST(hr AS integer) || 'HOUR')::INTERVAL) as endtime
 FROM all_hours
-CROSS JOIN UNNEST(all_hours.hrs) AS hr
+CROSS JOIN UNNEST(ARRAY[all_hours.hrs]) AS hr
