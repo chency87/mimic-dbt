@@ -1,9 +1,11 @@
-
+-- This query requires the pivoted_bg table to be generated.
+-- It extracts only arterial blood gas samples - either explicitly stated or 
+-- inferred by a hard-coded logistic regression model.
 with stg_spo2 as
 (
-  select subject_id, hadm_id, icustay_id, charttime
-    -- max here is just used to group SpO2 by charttime
-    , max(case when valuenum <= 0 or valuenum > 100 then null else valuenum end) as SpO2
+  select hadm_id, charttime
+    -- avg here is just used to group SpO2 by charttime
+    , avg(valuenum) as spo2
   FROM chartevents
   -- o2 sat
   where ITEMID in
@@ -11,11 +13,12 @@ with stg_spo2 as
     646 -- SpO2
   , 220277 -- O2 saturation pulseoxymetry
   )
-  group by subject_id, hadm_id, icustay_id, charttime
+  and valuenum > 0 and valuenum <= 100
+  group by hadm_id, charttime
 )
 , stg_fio2 as
 (
-  select subject_id, hadm_id, icustay_id, charttime
+  select hadm_id, charttime
     -- pre-process the FiO2s to ensure they are between 21-100%
     , max(
         case
@@ -45,28 +48,28 @@ with stg_spo2 as
   , 223835 -- Inspired O2 Fraction (FiO2)
   , 3422 -- FiO2 [measured]
   )
+  and valuenum > 0 and valuenum < 100
   -- exclude rows marked as error
-  AND (error IS NULL OR error = 0)
-  group by subject_id, hadm_id, icustay_id, charttime
+  AND (error IS NULL OR error != 1)
+  group by hadm_id, charttime
 )
 , stg2 as
 (
 select bg.*
-  , ROW_NUMBER() OVER (partition by bg.icustay_id, bg.charttime order by s1.charttime DESC) as lastRowSpO2
+  , row_number() OVER (partition by bg.hadm_id, bg.charttime order by s1.charttime DESC) as lastrowspo2
   , s1.spo2
-from {{ref('blood_gas_first_day')}} bg
+from pivoted_bg bg
 left join stg_spo2 s1
-  -- same patient
-  on  bg.icustay_id = s1.icustay_id
+  -- same hospitalization
+  on  bg.hadm_id = s1.hadm_id
   -- spo2 occurred at most 2 hours before this blood gas
-  and s1.charttime >= DATETIME_SUB(bg.charttime, INTERVAL '2' HOUR)
-  and s1.charttime <= bg.charttime
+  and s1.charttime between DATETIME_SUB(bg.charttime, INTERVAL '2' HOUR) and bg.charttime
 where bg.po2 is not null
 )
 , stg3 as
 (
 select bg.*
-  , ROW_NUMBER() OVER (partition by bg.icustay_id, bg.charttime order by s2.charttime DESC) as lastRowFiO2
+  , row_number() OVER (partition by bg.hadm_id, bg.charttime order by s2.charttime DESC) as lastrowfio2
   , s2.fio2_chartevents
 
   -- create our specimen prediction
@@ -84,70 +87,71 @@ select bg.*
   + coalesce( 0.08202 * lactate          ,  0.08202 *    3.06436 +    0.06038)
   + coalesce( 0.10956 * ph               ,  0.10956 *    7.36233 +   -0.00617)
   + coalesce( 0.00848 * o2flow           ,  0.00848 *    7.59362 +   -0.35803)
-  ))) as SPECIMEN_PROB
+  ))) as specimen_prob
 from stg2 bg
 left join stg_fio2 s2
   -- same patient
-  on  bg.icustay_id = s2.icustay_id
+  on  bg.hadm_id = s2.hadm_id
   -- fio2 occurred at most 4 hours before this blood gas
   and s2.charttime between DATETIME_SUB(bg.charttime, INTERVAL '4' HOUR) and bg.charttime
+  and s2.fio2_chartevents > 0
 where bg.lastRowSpO2 = 1 -- only the row with the most recent SpO2 (if no SpO2 found lastRowSpO2 = 1)
 )
+select
+    stg3.hadm_id
+  , stg3.icustay_id
+  , stg3.charttime
+  , specimen -- raw data indicating sample type, only present 80% of the time
+  -- prediction of specimen for missing data
+  , case
+        when SPECIMEN is not null then SPECIMEN
+        when SPECIMEN_PROB > 0.75 then 'ART'
+      else null end as specimen_pred
+  , specimen_prob
 
-select subject_id, hadm_id,
-icustay_id, charttime
-, specimen -- raw data indicating sample type, only present 80% of the time
+  -- oxygen related parameters
+  , so2, spo2 -- note spo2 is FROM chartevents
+  , po2, pco2
+  , fio2_chartevents, fio2
+  , aado2
+  -- also calculate AADO2
+  , case
+      when  PO2 is not null
+        and pco2 is not null
+        and coalesce(FIO2, fio2_chartevents) is not null
+       -- multiple by 100 because FiO2 is in a % but should be a fraction
+        then (coalesce(FIO2, fio2_chartevents)/100) * (760 - 47) - (pco2/0.8) - po2
+      else null
+    end as aado2_calc
+  , case
+      when PO2 is not null and coalesce(FIO2, fio2_chartevents) is not null
+       -- multiply by 100 because FiO2 is in a % but should be a fraction
+        then 100*PO2/(coalesce(FIO2, fio2_chartevents))
+      else null
+    end as pao2fio2ratio
+  -- acid-base parameters
+  , ph, baseexcess
+  , bicarbonate, totalco2
 
--- prediction of specimen for missing data
-, case
-      when SPECIMEN is not null then SPECIMEN
-      when SPECIMEN_PROB > 0.75 then 'ART'
-    else null end as SPECIMEN_PRED
-, specimen_prob
--- oxygen related parameters
-, so2, spo2 -- note spo2 is FROM chartevents
-, po2, pco2
-, fio2_chartevents, fio2
-, aado2
--- also calculate AADO2
-, case
-    when  PO2 is not null
-      and pco2 is not null
-      and coalesce(fio2, fio2_chartevents) is not null
-     -- multiple by 100 because FiO2 is in a % but should be a fraction
-      then (coalesce(fio2, fio2_chartevents)/100) * (760 - 47) - (pco2/0.8) - po2
-    else null
-  end as AADO2_calc
-, case
-    when PO2 is not null and coalesce(fio2, fio2_chartevents) is not null
-     -- multiply by 100 because FiO2 is in a % but should be a fraction
-      then 100*PO2/(coalesce(fio2, fio2_chartevents))
-    else null
-  end as PaO2FiO2
--- acid-base parameters
-, ph, baseexcess
-, bicarbonate, totalco2
+  -- blood count parameters
+  , hematocrit
+  , hemoglobin
+  , carboxyhemoglobin
+  , methemoglobin
 
--- blood count parameters
-, hematocrit
-, hemoglobin
-, carboxyhemoglobin
-, methemoglobin
+  -- chemistry
+  , chloride, calcium
+  , temperature
+  , potassium, sodium
+  , lactate
+  , glucose
 
--- chemistry
-, chloride, calcium
-, temperature
-, potassium, sodium
-, lactate
-, glucose
-
--- ventilation stuff that's sometimes input
-, intubated, tidalvolume, ventilationrate, ventilator
-, peep, o2flow
-, requiredo2
-
+  -- ventilation stuff that's sometimes input
+  , intubated, tidalvolume, ventilationrate, ventilator
+  , peep, o2flow
+  , requiredo2
 from stg3
 where lastRowFiO2 = 1 -- only the most recent FiO2
 -- restrict it to *only* arterial samples
 and (specimen = 'ART' or specimen_prob > 0.75)
-order by icustay_id, charttime
+order by hadm_id, charttime
