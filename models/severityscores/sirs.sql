@@ -33,7 +33,7 @@ with bg as
   -- join blood gas to ventilation durations to determine if patient was vent
   select bg.icustay_id
   , min(pco2) as paco2_min
-  from blood_gas_first_day_arterial bg
+  from {{ref('blood_gas_first_day_arterial')}} bg
   where specimen_pred = 'ART'
   group by bg.icustay_id
 )
@@ -52,9 +52,9 @@ select ie.icustay_id
 FROM icustays ie
 left join bg
  on ie.icustay_id = bg.icustay_id
-left join vitals_first_day v
+left join {{ref('vitals_first_day')}} v
   on ie.icustay_id = v.icustay_id
-left join labs_first_day l
+left join {{ref('labs_first_day')}} l
   on ie.icustay_id = l.icustay_id
 )
 , scorecalc as

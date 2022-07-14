@@ -48,3 +48,17 @@ models:
       +materialized: table
     fluid_balance:
       +materialized: table
+    cookbook:
+      +materialized: table
+    diagnosis:
+      +materialized: table
+    functions:
+      +materialized: table
+    pivot:
+      +materialized: table
+    sepsis:
+      +materialized: table
+    severityscores:
+      +materialized: table
+    treatment:
+      +materialized: table

@@ -18,7 +18,10 @@ def del_models_in_dir(dir_name):
          continue
       file_name = os.path.basename(sql_fn)
       table_name = os.path.splitext(file_name)[0]
-      cursor.execute(f"DROP TABLE IF EXISTS {table_name}")
+      try:
+         cursor.execute(f"DROP TABLE IF EXISTS {table_name}")
+      except Exception as e:
+         cursor.execute(f"DROP view IF EXISTS {table_name} CASCADE")
       print(f"Table: {table_name} dropped... ")
 if __name__ == '__main__':
    conn = psycopg2.connect(
