@@ -2,3 +2,4 @@
 target/
 dbt_packages/
 logs/
+_python_result_analyze/reset_env.py
