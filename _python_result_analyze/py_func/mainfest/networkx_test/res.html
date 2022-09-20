@@ -1,0 +1,176 @@
+<html>
+<head>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vis-network@latest/styles/vis-network.css" type="text/css" />
+<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/vis-network@latest/dist/vis-network.min.js"> </script>
+<center>
+<h1></h1>
+</center>
+
+<!-- <link rel="stylesheet" href="../node_modules/vis/dist/vis.min.css" type="text/css" />
+<script type="text/javascript" src="../node_modules/vis/dist/vis.js"> </script>-->
+
+<style type="text/css">
+
+        #mynetwork {
+            width: 100%;
+            height: 750px;
+            background-color: #ffffff;
+            border: 1px solid lightgray;
+            position: relative;
+            float: left;
+        }
+
+        
+        #loadingBar {
+            position:absolute;
+            top:0px;
+            left:0px;
+            width: 100%;
+            height: 750px;
+            background-color:rgba(200,200,200,0.8);
+            -webkit-transition: all 0.5s ease;
+            -moz-transition: all 0.5s ease;
+            -ms-transition: all 0.5s ease;
+            -o-transition: all 0.5s ease;
+            transition: all 0.5s ease;
+            opacity:1;
+        }
+
+        #bar {
+            position:absolute;
+            top:0px;
+            left:0px;
+            width:20px;
+            height:20px;
+            margin:auto auto auto auto;
+            border-radius:11px;
+            border:2px solid rgba(30,30,30,0.05);
+            background: rgb(0, 173, 246); /* Old browsers */
+            box-shadow: 2px 0px 4px rgba(0,0,0,0.4);
+        }
+
+        #border {
+            position:absolute;
+            top:10px;
+            left:10px;
+            width:500px;
+            height:23px;
+            margin:auto auto auto auto;
+            box-shadow: 0px 0px 4px rgba(0,0,0,0.2);
+            border-radius:10px;
+        }
+
+        #text {
+            position:absolute;
+            top:8px;
+            left:530px;
+            width:30px;
+            height:50px;
+            margin:auto auto auto auto;
+            font-size:22px;
+            color: #000000;
+        }
+
+        div.outerBorder {
+            position:relative;
+            top:400px;
+            width:600px;
+            height:44px;
+            margin:auto auto auto auto;
+            border:8px solid rgba(0,0,0,0.1);
+            background: rgb(252,252,252); /* Old browsers */
+            background: -moz-linear-gradient(top,  rgba(252,252,252,1) 0%, rgba(237,237,237,1) 100%); /* FF3.6+ */
+            background: -webkit-gradient(linear, left top, left bottom, color-stop(0%,rgba(252,252,252,1)), color-stop(100%,rgba(237,237,237,1))); /* Chrome,Safari4+ */
+            background: -webkit-linear-gradient(top,  rgba(252,252,252,1) 0%,rgba(237,237,237,1) 100%); /* Chrome10+,Safari5.1+ */
+            background: -o-linear-gradient(top,  rgba(252,252,252,1) 0%,rgba(237,237,237,1) 100%); /* Opera 11.10+ */
+            background: -ms-linear-gradient(top,  rgba(252,252,252,1) 0%,rgba(237,237,237,1) 100%); /* IE10+ */
+            background: linear-gradient(to bottom,  rgba(252,252,252,1) 0%,rgba(237,237,237,1) 100%); /* W3C */
+            filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#fcfcfc', endColorstr='#ededed',GradientType=0 ); /* IE6-9 */
+            border-radius:72px;
+            box-shadow: 0px 0px 10px rgba(0,0,0,0.2);
+        }
+        
+
+        
+
+        
+</style>
+
+</head>
+
+<body>
+<div id = "mynetwork"></div>
+
+<div id="loadingBar">
+    <div class="outerBorder">
+        <div id="text">0%</div>
+        <div id="border">
+            <div id="bar"></div>
+        </div>
+    </div>
+</div>
+
+
+<script type="text/javascript">
+
+    // initialize global variables.
+    var edges;
+    var nodes;
+    var network; 
+    var container;
+    var options, data;
+
+    
+    // This method is responsible for drawing the graph, returns the drawn network
+    function drawGraph() {
+        var container = document.getElementById('mynetwork');
+        
+        
+
+        // parsing and collecting nodes and edges from the python
+        nodes = new vis.DataSet([{"id": "echo_data", "label": "echo_data", "shape": "dot", "size": 10, "title": " Neighbors:\nweight_durations\nheight_first_day\nsofa\nweight_first_day"}, {"id": "sofa", "label": "sofa", "shape": "dot", "size": 10, "title": " Neighbors:\nurine_output_first_day\nlabs_first_day\necho_data\nvitals_first_day\ngcs_first_day\nblood_gas_first_day_arterial\nventilation_durations"}, {"id": "height_first_day", "label": "height_first_day", "shape": "dot", "size": 10, "title": " Neighbors:\necho_data"}, {"id": "weight_first_day", "label": "weight_first_day", "shape": "dot", "size": 10, "title": " Neighbors:\necho_data"}, {"id": "weight_durations", "label": "weight_durations", "shape": "dot", "size": 10, "title": " Neighbors:\nheightweight\necho_data\nkdigo_uo\nnorepinephrine_dose\nepinephrine_dose"}, {"id": "heightweight", "label": "heightweight", "shape": "dot", "size": 10, "title": " Neighbors:\nweight_durations"}, {"id": "epinephrine_dose", "label": "epinephrine_dose", "shape": "dot", "size": 10, "title": " Neighbors:\nweight_durations"}, {"id": "norepinephrine_dose", "label": "norepinephrine_dose", "shape": "dot", "size": 10, "title": " Neighbors:\nweight_durations"}, {"id": "kdigo_uo", "label": "kdigo_uo", "shape": "dot", "size": 10, "title": " Neighbors:\nweight_durations\nurine_output\nkdigo_stages"}, {"id": "pivoted_bg", "label": "pivoted_bg", "shape": "dot", "size": 10, "title": " Neighbors:\npivoted_bg_art"}, {"id": "pivoted_bg_art", "label": "pivoted_bg_art", "shape": "dot", "size": 10, "title": " Neighbors:\npivoted_bg"}, {"id": "blood_gas_first_day_arterial", "label": "blood_gas_first_day_arterial", "shape": "dot", "size": 10, "title": " Neighbors:\nsofa\nblood_gas_first_day\napsiii\nsapsii\nsirs\nmlods\nlods"}, {"id": "sirs", "label": "sirs", "shape": "dot", "size": 10, "title": " Neighbors:\nlabs_first_day\nblood_gas_first_day_arterial\nvitals_first_day"}, {"id": "lods", "label": "lods", "shape": "dot", "size": 10, "title": " Neighbors:\nurine_output_first_day\nlabs_first_day\nvitals_first_day\ngcs_first_day\nblood_gas_first_day_arterial\nventilation_durations"}, {"id": "mlods", "label": "mlods", "shape": "dot", "size": 10, "title": " Neighbors:\nlabs_first_day\nvitals_first_day\ngcs_first_day\nblood_gas_first_day_arterial\nventilation_durations"}, {"id": "apsiii", "label": "apsiii", "shape": "dot", "size": 10, "title": " Neighbors:\nurine_output_first_day\nventilation_first_day\nlabs_first_day\nvitals_first_day\ngcs_first_day\nblood_gas_first_day_arterial"}, {"id": "sapsii", "label": "sapsii", "shape": "dot", "size": 10, "title": " Neighbors:\nurine_output_first_day\nlabs_first_day\nvitals_first_day\ngcs_first_day\nblood_gas_first_day_arterial\nventilation_durations"}, {"id": "ventilation_durations", "label": "ventilation_durations", "shape": "dot", "size": 10, "title": " Neighbors:\nsofa\nventilation_first_day\nsapsii\nmlods\nventilation_classification\nlods"}, {"id": "ventilation_first_day", "label": "ventilation_first_day", "shape": "dot", "size": 10, "title": " Neighbors:\nsaps\nventilation_durations\noasis\napsiii"}, {"id": "saps", "label": "saps", "shape": "dot", "size": 10, "title": " Neighbors:\nurine_output_first_day\nventilation_first_day\nlabs_first_day\nvitals_first_day\ngcs_first_day"}, {"id": "oasis", "label": "oasis", "shape": "dot", "size": 10, "title": " Neighbors:\nurine_output_first_day\nventilation_first_day\ngcs_first_day\nvitals_first_day"}, {"id": "vitals_first_day", "label": "vitals_first_day", "shape": "dot", "size": 10, "title": " Neighbors:\nqsofa\nsofa\napsiii\nsapsii\noasis\nsirs\nmlods\nlods\nsaps"}, {"id": "qsofa", "label": "qsofa", "shape": "dot", "size": 10, "title": " Neighbors:\ngcs_first_day\nvitals_first_day"}, {"id": "labs_first_day", "label": "labs_first_day", "shape": "dot", "size": 10, "title": " Neighbors:\nsofa\napsiii\nmeld\nsapsii\nsirs\nmlods\nlods\nsaps"}, {"id": "meld", "label": "meld", "shape": "dot", "size": 10, "title": " Neighbors:\nlabs_first_day"}, {"id": "urine_output_first_day", "label": "urine_output_first_day", "shape": "dot", "size": 10, "title": " Neighbors:\nsofa\napsiii\nsapsii\noasis\nlods\nsaps"}, {"id": "gcs_first_day", "label": "gcs_first_day", "shape": "dot", "size": 10, "title": " Neighbors:\nqsofa\nsofa\napsiii\nsapsii\noasis\nmlods\nlods\nsaps"}, {"id": "blood_gas_first_day", "label": "blood_gas_first_day", "shape": "dot", "size": 10, "title": " Neighbors:\nblood_gas_first_day_arterial"}, {"id": "elixhauser_ahrq_v37", "label": "elixhauser_ahrq_v37", "shape": "dot", "size": 10, "title": " Neighbors:\nelixhauser_score_ahrq"}, {"id": "elixhauser_score_ahrq", "label": "elixhauser_score_ahrq", "shape": "dot", "size": 10, "title": " Neighbors:\nelixhauser_ahrq_v37"}, {"id": "elixhauser_quan", "label": "elixhauser_quan", "shape": "dot", "size": 10, "title": " Neighbors:\nelixhauser_score_quan"}, {"id": "elixhauser_score_quan", "label": "elixhauser_score_quan", "shape": "dot", "size": 10, "title": " Neighbors:\nelixhauser_quan"}, {"id": "kdigo_stages", "label": "kdigo_stages", "shape": "dot", "size": 10, "title": " Neighbors:\nkdigo_uo\nkdigo_stages_48hr\nkdigo_creatinine\nkdigo_stages_7day"}, {"id": "icustay_times", "label": "icustay_times", "shape": "dot", "size": 10, "title": " Neighbors:\nicustay_hours"}, {"id": "icustay_hours", "label": "icustay_hours", "shape": "dot", "size": 10, "title": " Neighbors:\nicustay_times"}, {"id": "ventilation_classification", "label": "ventilation_classification", "shape": "dot", "size": 10, "title": " Neighbors:\nventilation_durations"}, {"id": "abx_prescriptions_list", "label": "abx_prescriptions_list", "shape": "dot", "size": 10, "title": " Neighbors:\nsuspicion_of_infection"}, {"id": "suspicion_of_infection", "label": "suspicion_of_infection", "shape": "dot", "size": 10, "title": " Neighbors:\nabx_prescriptions_list"}, {"id": "kdigo_stages_48hr", "label": "kdigo_stages_48hr", "shape": "dot", "size": 10, "title": " Neighbors:\nkdigo_stages"}, {"id": "kdigo_stages_7day", "label": "kdigo_stages_7day", "shape": "dot", "size": 10, "title": " Neighbors:\nkdigo_stages"}, {"id": "kdigo_creatinine", "label": "kdigo_creatinine", "shape": "dot", "size": 10, "title": " Neighbors:\nkdigo_stages"}, {"id": "urine_output", "label": "urine_output", "shape": "dot", "size": 10, "title": " Neighbors:\nkdigo_uo"}, {"id": "code_status", "label": "code_status", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "pivoted_icp", "label": "pivoted_icp", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "pivoted_vital", "label": "pivoted_vital", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "pivoted_fio2", "label": "pivoted_fio2", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "pivoted_height", "label": "pivoted_height", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "pivoted_uo", "label": "pivoted_uo", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "pivoted_lab", "label": "pivoted_lab", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "pivoted_rrt", "label": "pivoted_rrt", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "pivoted_invasive_lines", "label": "pivoted_invasive_lines", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "pivoted_gcs", "label": "pivoted_gcs", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "rrt_first_day", "label": "rrt_first_day", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "elixhauser_ahrq_v37_no_drg", "label": "elixhauser_ahrq_v37_no_drg", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "icustay_detail", "label": "icustay_detail", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "central_line_durations", "label": "central_line_durations", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "dobutamine_durations", "label": "dobutamine_durations", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "vasopressin_durations", "label": "vasopressin_durations", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "dopamine_durations", "label": "dopamine_durations", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "vasopressin_dose", "label": "vasopressin_dose", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "phenylephrine_durations", "label": "phenylephrine_durations", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "epinephrine_durations", "label": "epinephrine_durations", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "isuprel_durations", "label": "isuprel_durations", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "arterial_line_durations", "label": "arterial_line_durations", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "vasopressor_durations", "label": "vasopressor_durations", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "neuroblock_dose", "label": "neuroblock_dose", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "dobutamine_dose", "label": "dobutamine_dose", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "phenylephrine_dose", "label": "phenylephrine_dose", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "milrinone_durations", "label": "milrinone_durations", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "crrt_durations", "label": "crrt_durations", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "adenosine_durations", "label": "adenosine_durations", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "dopamine_dose", "label": "dopamine_dose", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "norepinephrine_durations", "label": "norepinephrine_durations", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "mortality", "label": "mortality", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "icd9count", "label": "icd9count", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "height", "label": "height", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "temp", "label": "temp", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "sbp", "label": "sbp", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "wbc", "label": "wbc", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "uo", "label": "uo", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "sodium", "label": "sodium", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "bun", "label": "bun", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "hco", "label": "hco", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "number_of_patients", "label": "number_of_patients", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "icd9vicd9count", "label": "icd9vicd9count", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "glucose", "label": "glucose", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "potassium", "label": "potassium", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "age_histogram", "label": "age_histogram", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "gcs", "label": "gcs", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "rr", "label": "rr", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "heart_rate", "label": "heart_rate", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "icd9vicd9agelimited", "label": "icd9vicd9agelimited", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "basic_patient_info", "label": "basic_patient_info", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "min_surviving_bp", "label": "min_surviving_bp", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "icd9agelimited", "label": "icd9agelimited", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "icd9vagehistogram", "label": "icd9vagehistogram", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "auroc", "label": "auroc", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "rbc_transfusion", "label": "rbc_transfusion", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "crystalloid_bolus", "label": "crystalloid_bolus", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "ffp_transfusion", "label": "ffp_transfusion", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "colloid_bolus", "label": "colloid_bolus", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "explicit", "label": "explicit", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "martin", "label": "martin", "shape": "dot", "size": 10, "title": " Neighbors:\n"}, {"id": "angus", "label": "angus", "shape": "dot", "size": 10, "title": " Neighbors:\n"}]);
+        edges = new vis.DataSet([{"from": "echo_data", "label": 1, "to": "sofa", "weight": 1}, {"from": "echo_data", "label": 1, "to": "height_first_day", "weight": 1}, {"from": "echo_data", "label": 1, "to": "weight_first_day", "weight": 1}, {"from": "echo_data", "label": 1, "to": "weight_durations", "weight": 1}, {"from": "weight_durations", "label": 1, "to": "heightweight", "weight": 1}, {"from": "weight_durations", "label": 1, "to": "epinephrine_dose", "weight": 1}, {"from": "weight_durations", "label": 1, "to": "norepinephrine_dose", "weight": 1}, {"from": "weight_durations", "label": 1, "to": "kdigo_uo", "weight": 1}, {"from": "pivoted_bg", "label": 1, "to": "pivoted_bg_art", "weight": 1}, {"from": "blood_gas_first_day_arterial", "label": 1, "to": "sofa", "weight": 1}, {"from": "blood_gas_first_day_arterial", "label": 1, "to": "sirs", "weight": 1}, {"from": "blood_gas_first_day_arterial", "label": 1, "to": "lods", "weight": 1}, {"from": "blood_gas_first_day_arterial", "label": 1, "to": "mlods", "weight": 1}, {"from": "blood_gas_first_day_arterial", "label": 1, "to": "apsiii", "weight": 1}, {"from": "blood_gas_first_day_arterial", "label": 1, "to": "sapsii", "weight": 1}, {"from": "ventilation_durations", "label": 1, "to": "sofa", "weight": 1}, {"from": "ventilation_durations", "label": 1, "to": "lods", "weight": 1}, {"from": "ventilation_durations", "label": 1, "to": "mlods", "weight": 1}, {"from": "ventilation_durations", "label": 1, "to": "sapsii", "weight": 1}, {"from": "ventilation_durations", "label": 1, "to": "ventilation_first_day", "weight": 1}, {"from": "ventilation_first_day", "label": 1, "to": "saps", "weight": 1}, {"from": "ventilation_first_day", "label": 1, "to": "oasis", "weight": 1}, {"from": "ventilation_first_day", "label": 1, "to": "apsiii", "weight": 1}, {"from": "vitals_first_day", "label": 1, "to": "sofa", "weight": 1}, {"from": "vitals_first_day", "label": 1, "to": "qsofa", "weight": 1}, {"from": "vitals_first_day", "label": 1, "to": "sirs", "weight": 1}, {"from": "vitals_first_day", "label": 1, "to": "saps", "weight": 1}, {"from": "vitals_first_day", "label": 1, "to": "lods", "weight": 1}, {"from": "vitals_first_day", "label": 1, "to": "mlods", "weight": 1}, {"from": "vitals_first_day", "label": 1, "to": "oasis", "weight": 1}, {"from": "vitals_first_day", "label": 1, "to": "apsiii", "weight": 1}, {"from": "vitals_first_day", "label": 1, "to": "sapsii", "weight": 1}, {"from": "labs_first_day", "label": 1, "to": "sofa", "weight": 1}, {"from": "labs_first_day", "label": 1, "to": "sirs", "weight": 1}, {"from": "labs_first_day", "label": 1, "to": "saps", "weight": 1}, {"from": "labs_first_day", "label": 1, "to": "lods", "weight": 1}, {"from": "labs_first_day", "label": 1, "to": "mlods", "weight": 1}, {"from": "labs_first_day", "label": 1, "to": "apsiii", "weight": 1}, {"from": "labs_first_day", "label": 1, "to": "sapsii", "weight": 1}, {"from": "labs_first_day", "label": 1, "to": "meld", "weight": 1}, {"from": "urine_output_first_day", "label": 1, "to": "sofa", "weight": 1}, {"from": "urine_output_first_day", "label": 1, "to": "saps", "weight": 1}, {"from": "urine_output_first_day", "label": 1, "to": "lods", "weight": 1}, {"from": "urine_output_first_day", "label": 1, "to": "oasis", "weight": 1}, {"from": "urine_output_first_day", "label": 1, "to": "apsiii", "weight": 1}, {"from": "urine_output_first_day", "label": 1, "to": "sapsii", "weight": 1}, {"from": "gcs_first_day", "label": 1, "to": "sofa", "weight": 1}, {"from": "gcs_first_day", "label": 1, "to": "qsofa", "weight": 1}, {"from": "gcs_first_day", "label": 1, "to": "saps", "weight": 1}, {"from": "gcs_first_day", "label": 1, "to": "lods", "weight": 1}, {"from": "gcs_first_day", "label": 1, "to": "mlods", "weight": 1}, {"from": "gcs_first_day", "label": 1, "to": "oasis", "weight": 1}, {"from": "gcs_first_day", "label": 1, "to": "apsiii", "weight": 1}, {"from": "gcs_first_day", "label": 1, "to": "sapsii", "weight": 1}, {"from": "blood_gas_first_day", "label": 1, "to": "blood_gas_first_day_arterial", "weight": 1}, {"from": "elixhauser_ahrq_v37", "label": 1, "to": "elixhauser_score_ahrq", "weight": 1}, {"from": "elixhauser_quan", "label": 1, "to": "elixhauser_score_quan", "weight": 1}, {"from": "kdigo_uo", "label": 1, "to": "kdigo_stages", "weight": 1}, {"from": "icustay_times", "label": 1, "to": "icustay_hours", "weight": 1}, {"from": "ventilation_classification", "label": 1, "to": "ventilation_durations", "weight": 1}, {"from": "abx_prescriptions_list", "label": 1, "to": "suspicion_of_infection", "weight": 1}, {"from": "kdigo_stages", "label": 1, "to": "kdigo_stages_48hr", "weight": 1}, {"from": "kdigo_stages", "label": 1, "to": "kdigo_stages_7day", "weight": 1}, {"from": "kdigo_creatinine", "label": 1, "to": "kdigo_stages", "weight": 1}, {"from": "urine_output", "label": 1, "to": "kdigo_uo", "weight": 1}]);
+
+        // adding nodes and edges to the graph
+        data = {nodes: nodes, edges: edges};
+
+        var options = {"physics": {"barnesHut": {"centralGravity": 1.8, "avoidOverlap": 0.2}, "minVelocity": 0.75}};
+        
+        
+
+        
+
+        network = new vis.Network(container, data, options);
+	 
+        
+
+
+        
+        network.on("stabilizationProgress", function(params) {
+      		document.getElementById('loadingBar').removeAttribute("style");
+	        var maxWidth = 496;
+	        var minWidth = 20;
+	        var widthFactor = params.iterations/params.total;
+	        var width = Math.max(minWidth,maxWidth * widthFactor);
+
+	        document.getElementById('bar').style.width = width + 'px';
+	        document.getElementById('text').innerHTML = Math.round(widthFactor*100) + '%';
+	    });
+	    network.once("stabilizationIterationsDone", function() {
+	        document.getElementById('text').innerHTML = '100%';
+	        document.getElementById('bar').style.width = '496px';
+	        document.getElementById('loadingBar').style.opacity = 0;
+	        // really clean the dom element
+	        setTimeout(function () {document.getElementById('loadingBar').style.display = 'none';}, 500);
+	    });
+        
+
+        return network;
+
+    }
+
+    drawGraph();
+
+</script>
+</body>
+</html>

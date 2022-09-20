@@ -25,7 +25,7 @@ def del_models_in_dir(dir_name):
       print(f"Table: {table_name} dropped... ")
 if __name__ == '__main__':
    conn = psycopg2.connect(
-      database="mimic", user='postgres', password='123456', host='127.0.0.1', port= '5432'
+      database="mimic", user='chunyu', password='chunyu', host='127.0.0.1', port= '5432'
    )
 
    #Setting auto commit false
